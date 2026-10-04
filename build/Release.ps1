@@ -20,7 +20,9 @@ param(
     [string]$NotesFile = '',
     [switch]$DryRun
 )
-$ErrorActionPreference = 'Stop'
+# 'Continue': in PowerShell 5.1 any stderr line of a native tool (git, gh) is a
+# terminating error under 'Stop'. Every step checks $LASTEXITCODE explicitly instead.
+$ErrorActionPreference = 'Continue'
 $root = Split-Path -Parent $PSScriptRoot
 Set-Location -LiteralPath $root
 
@@ -41,6 +43,7 @@ if (-not $current) { Die 'Could not read the current version from src\WinCare.ps
 if ([version]$Version -le [version]$current) { Die "New version $Version must be greater than the current $current." }
 
 foreach ($tool in 'git', 'gh') { if (-not (Get-Command $tool -ErrorAction SilentlyContinue)) { Die "$tool is not installed." } }
+git fetch --tags --quiet origin 2>$null   # tags created by GitHub releases exist only on the remote
 $dirty = git status --porcelain
 if ($dirty) { Die "Working tree is not clean. Commit or stash first:`n$($dirty -join "`n")" }
 if (git tag --list $tag) { Die "Tag $tag already exists." }
@@ -50,7 +53,7 @@ $repo = (gh repo view --json nameWithOwner -q .nameWithOwner).Trim()
 "Version    : $current -> $Version"
 
 # --- Release notes -----------------------------------------------------------
-$prevTag = (git describe --tags --abbrev=0 2>$null)
+$prevTag = (git tag --list 'v*' --sort=-v:refname | Select-Object -First 1)
 if ($NotesFile) {
     if (-not (Test-Path -LiteralPath $NotesFile)) { Die "Notes file not found: $NotesFile" }
     $changes = [IO.File]::ReadAllText((Resolve-Path -LiteralPath $NotesFile))
@@ -100,9 +103,10 @@ Step "Committing and tagging $tag"
 git add -- $ui $launcher $manifest
 git commit -q -m "Release $tag"
 git tag -a $tag -m "WinCare $Version"
-git push -q origin HEAD
-git push -q origin $tag
-if ($LASTEXITCODE -ne 0) { Die 'Push failed.' }
+git push -q origin HEAD 2>$null
+if ($LASTEXITCODE -ne 0) { Die 'Push of the release commit failed.' }
+git push -q origin $tag 2>$null
+if ($LASTEXITCODE -ne 0) { Die 'Push of the tag failed.' }
 
 # --- 6. GitHub release -------------------------------------------------------
 Step 'Creating GitHub release'
@@ -123,7 +127,7 @@ if ($LASTEXITCODE -ne 0) { Die 'gh release create failed.' }
 # Verify the uploaded asset
 $check = Join-Path $env:TEMP "wincare-verify-$Version"
 if (Test-Path $check) { Remove-Item -LiteralPath $check -Recurse -Force }
-gh release download $tag --repo $repo --dir $check
+gh release download $tag --repo $repo --dir $check 2>$null
 $remote = (Get-FileHash -LiteralPath (Join-Path $check "WinCare-$Version.zip") -Algorithm SHA256).Hash
 if ($remote -ne $hash) { Die "Uploaded asset hash differs: $remote vs $hash" }
 
