@@ -86,6 +86,12 @@ powershell -NoProfile -File build\Build-Exe.ps1 -Package   # WinCare.exe + dist\
 powershell -NoProfile -STA -File tests\Test-WinCare.ps1    # automated checks
 ```
 
+To publish a new version (sets the version everywhere, runs the checks, builds, tags, pushes and creates the GitHub release with a verified ZIP):
+
+```
+powershell -NoProfile -STA -File build\Release.ps1 -Version 1.1.0 [-NotesFile notes.md] [-DryRun]
+```
+
 The screenshots are produced by the app itself, in a read-only mode:
 
 ```
