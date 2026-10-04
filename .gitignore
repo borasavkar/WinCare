@@ -2,3 +2,7 @@
 *.log
 *-report-*.txt
 tests/output/
+
+# Build output (published as GitHub release assets, not committed)
+WinCare.exe
+dist/

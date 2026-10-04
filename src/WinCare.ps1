@@ -8,6 +8,16 @@
     * All text comes from ../lang/*.json. This file is ASCII-only.
     * Language / theme changes rebuild the window in place.
 #>
+param(
+    # Screenshot mode (documentation and visual checks). Read-only: no button is
+    # pressed and no setting is saved. Example:
+    #   powershell -STA -File src\WinCare.ps1 -ScreenshotDir docs\screenshots -Language en -Theme dark
+    [string]$ScreenshotDir = '',
+    [string]$Language = '',
+    [string]$Theme = '',
+    [string]$CapturePages = 'NavOverview,NavCleanup,NavHealth,NavDisks,NavNetwork,NavActivity,NavSettings',
+    [int]$Height = 0
+)
 
 $ErrorActionPreference = 'Stop'
 
@@ -54,9 +64,11 @@ function Save-Settings {
 }
 
 $script:Settings = Read-Settings
+if ($Language) { $script:Settings.Language = $Language }
+if ($Theme)    { $script:Settings.Theme    = $Theme }
 Initialize-Language -Directory $script:LangDir -Code $script:Settings.Language
 
-if (-not (Test-IsAdmin)) {
+if (-not $ScreenshotDir -and -not (Test-IsAdmin)) {
     [void][System.Windows.MessageBox]::Show((T 'app.needAdmin'), $script:AppName, 'OK', 'Warning')
     exit 1
 }
@@ -120,6 +132,17 @@ public class WcCleanupItem : INotifyPropertyChanged {
 }
 '@
 }
+
+if (-not ('WcShell' -as [type])) {
+    Add-Type -TypeDefinition @'
+using System.Runtime.InteropServices;
+public static class WcShell {
+    [DllImport("shell32.dll", CharSet = CharSet.Unicode)] public static extern int SetCurrentProcessExplicitAppUserModelID(string id);
+}
+'@
+}
+# Own taskbar identity: WinCare is not grouped with other PowerShell windows
+try { [void][WcShell]::SetCurrentProcessExplicitAppUserModelID('borasavkar.WinCare') } catch { }
 
 if (-not ('WcDwm' -as [type])) {
     Add-Type -TypeDefinition @'
@@ -439,10 +462,13 @@ $script:XamlTemplate = @'
     <Border Grid.Column="0" Grid.RowSpan="2" Background="{StaticResource Side}">
       <DockPanel>
         <StackPanel DockPanel.Dock="Top" Orientation="Horizontal" Margin="22,24,16,22">
-          <Border Width="32" Height="32" CornerRadius="8" Background="{StaticResource Accent}">
-            <TextBlock Text="&#xE9F5;" FontFamily="{StaticResource Icons}" FontSize="17" Foreground="White"
-                       HorizontalAlignment="Center" VerticalAlignment="Center"/>
-          </Border>
+          <Grid Width="32" Height="32">
+            <Border CornerRadius="8" Background="{StaticResource Accent}">
+              <TextBlock Text="&#xEA18;" FontFamily="{StaticResource Icons}" FontSize="17" Foreground="White"
+                         HorizontalAlignment="Center" VerticalAlignment="Center"/>
+            </Border>
+            <Image x:Name="LogoImage" RenderOptions.BitmapScalingMode="HighQuality"/>
+          </Grid>
           <StackPanel Margin="12,0,0,0" VerticalAlignment="Center">
             <TextBlock Text="@AppName@" FontFamily="{StaticResource Display}" FontSize="17" FontWeight="SemiBold" Foreground="{StaticResource Text}"/>
             <TextBlock x:Name="TxtSideVersion" Text="" FontSize="11.5" Foreground="{StaticResource Text3}"/>
@@ -1457,6 +1483,20 @@ function New-MainWindow {
         if (-not $script:Ui.ContainsKey($n)) { $el = $script:Win.FindName($n); if ($null -ne $el) { $script:Ui[$n] = $el } }
     }
 
+    # App icon (window, taskbar, sidebar). Missing assets are not fatal.
+    try {
+        $icoPath = Join-Path $script:Root 'assets\WinCare.ico'
+        $pngPath = Join-Path $script:Root 'assets\icon-256.png'
+        if (Test-Path -LiteralPath $icoPath) {
+            $script:Win.Icon = [System.Windows.Media.Imaging.BitmapFrame]::Create((New-Object Uri $icoPath))
+        }
+        if (Test-Path -LiteralPath $pngPath) {
+            $bi = New-Object System.Windows.Media.Imaging.BitmapImage
+            $bi.BeginInit(); $bi.CacheOption = 'OnLoad'; $bi.UriSource = New-Object Uri $pngPath; $bi.EndInit()
+            $script:Ui.LogoImage.Source = $bi
+        }
+    } catch { }
+
     if ($script:Bounds) {
         $script:Win.WindowStartupLocation = 'Manual'
         $script:Win.Left = $script:Bounds.Left; $script:Win.Top = $script:Bounds.Top
@@ -1551,6 +1591,40 @@ function New-MainWindow {
     if ($script:ReturnToSettings) { $script:Ui.NavSettings.IsChecked = $true; $script:ReturnToSettings = $false }
     $script:Initializing = $false
     Update-CleanupTotal
+}
+
+function Register-Screenshots {
+    if (-not (Test-Path -LiteralPath $ScreenshotDir)) { New-Item -ItemType Directory -Path $ScreenshotDir -Force | Out-Null }
+    if ($Height -gt 0) { $script:Win.WindowStartupLocation = 'Manual'; $script:Win.Top = 0; $script:Win.MaxHeight = 6000; $script:Win.Height = $Height }
+    $script:ShotPages = @($CapturePages.Split(',') | ForEach-Object { $_.Trim() } | Where-Object { $_ })
+    $script:ShotIndex = -1; $script:ShotWait = 0
+    $script:ShotTimer = New-Object System.Windows.Threading.DispatcherTimer
+    $script:ShotTimer.Interval = [TimeSpan]::FromMilliseconds(700)
+    $script:ShotTimer.Add_Tick({
+        if ((-not $script:LastData -or $script:Shared.Busy) -and $script:ShotWait -lt 150) { $script:ShotWait++; return }
+        if ($script:ShotIndex -ge 0) {
+            $name = '{0}-{1}-{2}.png' -f $script:Settings.Language, $script:Settings.Theme, $script:ShotPages[$script:ShotIndex].Substring(3).ToLowerInvariant()
+            Save-WindowImage (Join-Path $ScreenshotDir $name)
+        }
+        $script:ShotIndex++
+        if ($script:ShotIndex -ge $script:ShotPages.Count) { $script:ShotTimer.Stop(); $script:Rebuild = $false; $script:Win.Close(); return }
+        $script:Ui[$script:ShotPages[$script:ShotIndex]].IsChecked = $true
+    })
+    $script:Win.Add_ContentRendered({ $script:ShotTimer.Start() })
+}
+
+function Save-WindowImage([string]$Path) {
+    $script:Win.UpdateLayout()
+    $c = $script:Win.Content; $w = [int]$c.ActualWidth; $h = [int]$c.ActualHeight
+    $dv = New-Object System.Windows.Media.DrawingVisual; $dc = $dv.RenderOpen()
+    $dc.DrawRectangle($script:Win.Background, $null, (New-Object System.Windows.Rect 0, 0, $w, $h))
+    $dc.DrawRectangle((New-Object System.Windows.Media.VisualBrush $c), $null, (New-Object System.Windows.Rect 0, 0, $w, $h))
+    $dc.Close()
+    $bmp = New-Object System.Windows.Media.Imaging.RenderTargetBitmap $w, $h, 96, 96, ([System.Windows.Media.PixelFormats]::Pbgra32)
+    $bmp.Render($dv)
+    $enc = New-Object System.Windows.Media.Imaging.PngBitmapEncoder
+    $enc.Frames.Add([System.Windows.Media.Imaging.BitmapFrame]::Create($bmp))
+    $fs = [IO.File]::Create($Path); try { $enc.Save($fs) } finally { $fs.Close() }
 }
 
 function Request-Rebuild {
@@ -1819,5 +1893,6 @@ while ($script:Rebuild) {
     if ($first) { Add-Log (T 'app.started' $script:AppVersion) 'info'; $first = $false }
     if ($script:LastData) { Update-FromRefresh $script:LastData }
     $script:Win.Add_ContentRendered({ if (-not $script:LastData) { Start-Refresh } })
+    if ($ScreenshotDir) { Register-Screenshots }
     [void]$script:Win.ShowDialog()
 }
