@@ -1,0 +1,4 @@
+# Local test output and reports
+*.log
+*-report-*.txt
+tests/output/
