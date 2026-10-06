@@ -134,6 +134,87 @@ public class WcCleanupItem : INotifyPropertyChanged {
 '@
 }
 
+if (-not ('WcTaskbar' -as [type])) {
+    # Window relaunch properties: tell the taskbar that pinning this window must
+    # pin WinCare.exe (name + icon), not the hosting powershell.exe.
+    Add-Type -TypeDefinition @'
+using System;
+using System.Runtime.InteropServices;
+public static class WcTaskbar {
+    [StructLayout(LayoutKind.Sequential, Pack = 4)]
+    public struct PropertyKey { public Guid fmtid; public uint pid; }
+
+    // PROPVARIANT is 16 bytes on x86 and 24 on x64; only vt and the pointer are used
+    [StructLayout(LayoutKind.Explicit, Size = 24)]
+    public struct PropVariant { [FieldOffset(0)] public ushort vt; [FieldOffset(8)] public IntPtr p; }
+
+    [ComImport, Guid("886D8EEB-8CF2-4446-8D02-CDBA1DBDCF99"), InterfaceType(ComInterfaceType.InterfaceIsIUnknown)]
+    interface IPropertyStore {
+        [PreserveSig] int GetCount(out uint count);
+        [PreserveSig] int GetAt(uint index, out PropertyKey key);
+        [PreserveSig] int GetValue(ref PropertyKey key, out PropVariant value);
+        [PreserveSig] int SetValue(ref PropertyKey key, ref PropVariant value);
+        [PreserveSig] int Commit();
+    }
+
+    [DllImport("shell32.dll")]
+    static extern int SHGetPropertyStoreForWindow(IntPtr hwnd, ref Guid iid, [MarshalAs(UnmanagedType.Interface)] out IPropertyStore store);
+    [DllImport("ole32.dll")]
+    static extern int PropVariantClear(ref PropVariant value);
+
+    // System.AppUserModel.* property set
+    static readonly Guid Fmt = new Guid("9F4C2855-9F79-4B39-A8D0-E1D42DE1D5F3");
+    const uint RelaunchCommand = 2, RelaunchIcon = 3, RelaunchName = 4, AppId = 5;
+
+    static IPropertyStore Open(IntPtr hwnd) {
+        Guid iid = new Guid("886D8EEB-8CF2-4446-8D02-CDBA1DBDCF99");
+        IPropertyStore store;
+        Marshal.ThrowExceptionForHR(SHGetPropertyStoreForWindow(hwnd, ref iid, out store));
+        return store;
+    }
+
+    static void Put(IPropertyStore store, uint pid, string value) {
+        PropertyKey key = new PropertyKey(); key.fmtid = Fmt; key.pid = pid;
+        PropVariant pv = new PropVariant();
+        if (value != null) { pv.vt = 31; pv.p = Marshal.StringToCoTaskMemUni(value); }   // VT_LPWSTR, else VT_EMPTY
+        try { Marshal.ThrowExceptionForHR(store.SetValue(ref key, ref pv)); }
+        finally { PropVariantClear(ref pv); }
+    }
+
+    public static void Set(IntPtr hwnd, string appId, string command, string name, string icon) {
+        IPropertyStore store = Open(hwnd);
+        try {
+            Put(store, RelaunchCommand, command);
+            Put(store, RelaunchName, name);
+            Put(store, RelaunchIcon, icon);
+            Put(store, AppId, appId);          // the relaunch values apply only with an explicit ID
+            store.Commit();
+        } finally { Marshal.ReleaseComObject(store); }
+    }
+
+    // Windows asks apps to remove these before the window is destroyed
+    public static void Clear(IntPtr hwnd) {
+        IPropertyStore store = Open(hwnd);
+        try {
+            Put(store, AppId, null); Put(store, RelaunchCommand, null);
+            Put(store, RelaunchName, null); Put(store, RelaunchIcon, null);
+            store.Commit();
+        } finally { Marshal.ReleaseComObject(store); }
+    }
+
+    public static string Get(IntPtr hwnd, uint pid) {
+        IPropertyStore store = Open(hwnd);
+        try {
+            PropertyKey key = new PropertyKey(); key.fmtid = Fmt; key.pid = pid;
+            PropVariant pv;
+            Marshal.ThrowExceptionForHR(store.GetValue(ref key, out pv));
+            try { return pv.vt == 31 ? Marshal.PtrToStringUni(pv.p) : null; } finally { PropVariantClear(ref pv); }
+        } finally { Marshal.ReleaseComObject(store); }
+    }
+}
+'@
+}
+
 if (-not ('WcShell' -as [type])) {
     Add-Type -TypeDefinition @'
 using System.Runtime.InteropServices;
@@ -1943,6 +2024,10 @@ function New-MainWindow {
             $colorRef = [int]($c.R) -bor ([int]($c.G) -shl 8) -bor ([int]($c.B) -shl 16)
             [void][WcDwm]::DwmSetWindowAttribute($h, 35, [ref]$colorRef, 4)      # caption color = background
         } catch { }
+        try {
+            $t = Get-RelaunchTarget
+            [WcTaskbar]::Set($h, 'borasavkar.WinCare', $t.Command, $script:AppName, $t.Icon)
+        } catch { Add-Log "Taskbar pin properties: $($_.Exception.Message)" 'warn' }
     })
 
     # Logs survive rebuilds
@@ -2009,6 +2094,7 @@ function New-MainWindow {
     $script:Timer.Start()
 
     $script:Win.Add_Closing({
+        try { [WcTaskbar]::Clear((New-Object System.Windows.Interop.WindowInteropHelper($script:Win)).Handle) } catch { }
         $script:Bounds = @{ Left = $script:Win.RestoreBounds.Left; Top = $script:Win.RestoreBounds.Top
                             Width = $script:Win.RestoreBounds.Width; Height = $script:Win.RestoreBounds.Height
                             Max = ($script:Win.WindowState -eq 'Maximized') }
@@ -2040,6 +2126,11 @@ function Register-Screenshots {
             # Text dump of the run-history lines, for automated checks
             $lines = foreach ($k in $script:HistoryKeys) { if ($script:Ui["Hist$k"]) { "{0,-17} {1}" -f $k, $script:Ui["Hist$k"].Text } }
             [IO.File]::WriteAllLines((Join-Path $ScreenshotDir ($name -replace '\.png$', '-history.txt')), [string[]]$lines, (New-Object Text.UTF8Encoding($true)))
+            if ($script:ShotIndex -eq 0) {
+                $hw = (New-Object System.Windows.Interop.WindowInteropHelper($script:Win)).Handle
+                $tb = foreach ($pid2 in 5, 2, 4, 3) { '{0} = {1}' -f @{ 5 = 'AppUserModel.ID'; 2 = 'RelaunchCommand'; 4 = 'RelaunchDisplayName'; 3 = 'RelaunchIcon' }[$pid2], [WcTaskbar]::Get($hw, $pid2) }
+                [IO.File]::WriteAllLines((Join-Path $ScreenshotDir 'taskbar-properties.txt'), [string[]]$tb, (New-Object Text.UTF8Encoding($true)))
+            }
         }
         $script:ShotIndex++
         if ($script:ShotIndex -ge $script:ShotPages.Count) { $script:ShotTimer.Stop(); $script:Rebuild = $false; $script:Win.Close(); return }
@@ -2078,6 +2169,14 @@ function Save-WindowImage([string]$Path) {
     $enc = New-Object System.Windows.Media.Imaging.PngBitmapEncoder
     $enc.Frames.Add([System.Windows.Media.Imaging.BitmapFrame]::Create($bmp))
     $fs = [IO.File]::Create($Path); try { $enc.Save($fs) } finally { $fs.Close() }
+}
+
+function Get-RelaunchTarget {
+    # Pin target: WinCare.exe when it exists (release), WinCare.bat when running from source
+    $exe = Join-Path $script:Root 'WinCare.exe'
+    if (Test-Path -LiteralPath $exe) { return @{ Command = "`"$exe`""; Icon = "$exe,0" } }
+    $bat = Join-Path $script:Root 'WinCare.bat'
+    @{ Command = "`"$bat`""; Icon = "$(Join-Path $script:Root 'assets\WinCare.ico'),0" }
 }
 
 function Request-Rebuild {
