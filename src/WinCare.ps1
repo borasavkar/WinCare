@@ -22,7 +22,7 @@ param(
 $ErrorActionPreference = 'Stop'
 
 $script:AppName    = 'WinCare'
-$script:AppVersion = '1.2.0'
+$script:AppVersion = '1.3.0'
 $script:ProjectUrl = 'https://github.com/borasavkar/WinCare'
 
 $script:Root      = Split-Path -Parent $PSScriptRoot
