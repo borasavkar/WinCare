@@ -997,6 +997,55 @@ $script:XamlTemplate = @'
               <Button x:Name="BtnNetCheck" Grid.Column="2" Style="{StaticResource Secondary}" Content="[[action.recheck]]" VerticalAlignment="Center"/>
             </Grid>
           </Border>
+          <Border Style="{StaticResource CardBox}" Padding="24">
+            <StackPanel>
+              <Grid>
+                <Grid.ColumnDefinitions><ColumnDefinition Width="*"/><ColumnDefinition Width="Auto"/></Grid.ColumnDefinitions>
+                <StackPanel Margin="0,0,16,0">
+                  <TextBlock Text="[[speed.title]]" Style="{StaticResource H2}"/>
+                  <TextBlock Text="[[speed.desc]]" Style="{StaticResource Caption}" Margin="0,4,0,0"/>
+                </StackPanel>
+                <Button x:Name="BtnSpeed" Grid.Column="1" Style="{StaticResource Primary}" Content="[[speed.start]]" VerticalAlignment="Top"/>
+              </Grid>
+              <Grid Margin="0,20,0,0">
+                <Grid.ColumnDefinitions><ColumnDefinition Width="*"/><ColumnDefinition Width="*"/><ColumnDefinition Width="*"/><ColumnDefinition Width="*"/></Grid.ColumnDefinitions>
+                <StackPanel Grid.Column="0">
+                  <TextBlock Text="[[speed.down]]" Style="{StaticResource Caption}"/>
+                  <StackPanel Orientation="Horizontal" Margin="0,6,0,0">
+                    <TextBlock x:Name="SpdDown" Text="-" FontFamily="{StaticResource Display}" FontSize="26" FontWeight="SemiBold" Foreground="{StaticResource Text}"/>
+                    <TextBlock Text="[[speed.mbps]]" Style="{StaticResource Caption}" VerticalAlignment="Bottom" Margin="6,0,0,5"/>
+                  </StackPanel>
+                </StackPanel>
+                <StackPanel Grid.Column="1">
+                  <TextBlock Text="[[speed.up]]" Style="{StaticResource Caption}"/>
+                  <StackPanel Orientation="Horizontal" Margin="0,6,0,0">
+                    <TextBlock x:Name="SpdUp" Text="-" FontFamily="{StaticResource Display}" FontSize="26" FontWeight="SemiBold" Foreground="{StaticResource Text}"/>
+                    <TextBlock Text="[[speed.mbps]]" Style="{StaticResource Caption}" VerticalAlignment="Bottom" Margin="6,0,0,5"/>
+                  </StackPanel>
+                </StackPanel>
+                <StackPanel Grid.Column="2">
+                  <TextBlock Text="[[speed.ping]]" Style="{StaticResource Caption}"/>
+                  <StackPanel Orientation="Horizontal" Margin="0,6,0,0">
+                    <TextBlock x:Name="SpdPing" Text="-" FontFamily="{StaticResource Display}" FontSize="26" FontWeight="SemiBold" Foreground="{StaticResource Text}"/>
+                    <TextBlock Text="[[speed.ms]]" Style="{StaticResource Caption}" VerticalAlignment="Bottom" Margin="6,0,0,5"/>
+                  </StackPanel>
+                </StackPanel>
+                <StackPanel Grid.Column="3">
+                  <TextBlock Text="[[speed.jitter]]" Style="{StaticResource Caption}"/>
+                  <StackPanel Orientation="Horizontal" Margin="0,6,0,0">
+                    <TextBlock x:Name="SpdJitter" Text="-" FontFamily="{StaticResource Display}" FontSize="26" FontWeight="SemiBold" Foreground="{StaticResource Text}"/>
+                    <TextBlock Text="[[speed.ms]]" Style="{StaticResource Caption}" VerticalAlignment="Bottom" Margin="6,0,0,5"/>
+                  </StackPanel>
+                </StackPanel>
+              </Grid>
+              <TextBlock x:Name="TxtSpeedInfo" Text="" Style="{StaticResource Caption}" Margin="0,14,0,0"/>
+              <Grid Margin="0,8,0,0">
+                <Grid.ColumnDefinitions><ColumnDefinition Width="Auto"/><ColumnDefinition Width="*"/></Grid.ColumnDefinitions>
+                <Ellipse x:Name="HistDotSpeedTest" Width="7" Height="7" Fill="{StaticResource Text3}" VerticalAlignment="Top" Margin="0,5,8,0"/>
+                <TextBlock x:Name="HistSpeedTest" Grid.Column="1" Text="" FontSize="12" Foreground="{StaticResource Text2}" TextWrapping="Wrap"/>
+              </Grid>
+            </StackPanel>
+          </Border>
           <Border Style="{StaticResource Row}">
             <Grid>
               <Grid.ColumnDefinitions><ColumnDefinition Width="36"/><ColumnDefinition Width="*"/><ColumnDefinition Width="Auto"/></Grid.ColumnDefinitions>
@@ -1214,7 +1263,7 @@ $script:DriveButtons = @(); $script:SelectedDrive = $null; $script:RestartRecove
 $script:ActionButtons = @('BtnQuick','BtnDeep','BtnClean','BtnRemeasure','BtnCheck','BtnScan','BtnRepair','BtnSfc',
                           'BtnApps','BtnAnalyze','BtnComp','BtnFsScan','BtnFsFix','BtnOptimize','BtnNetCheck','BtnDns',
                           'BtnAdapter','ThemeSystem','ThemeLight','ThemeDark','BtnVerify','BtnWmi','BtnWmiFix','BtnBrowse',
-                          'BtnScanFile','BtnChkdsk','BtnWinsock','BtnIpReset','BtnRecovery','ChkModeF','ChkModeR','ChkModeFrx','TxtScanPath')
+                          'BtnScanFile','BtnChkdsk','BtnWinsock','BtnIpReset','BtnRecovery','BtnSpeed','ChkModeF','ChkModeR','ChkModeFrx','TxtScanPath')
 
 function Get-Brush([string]$Key) { $script:Win.FindResource($Key) }
 
@@ -1556,7 +1605,7 @@ function Request-Restart([string]$Title, [string]$Text, [switch]$Recovery) {
 #  Run history and advice ("when did it last run, is it needed now?")
 # =============================================================================
 $script:HistoryKeys = @('CheckHealth','ScanHealth','SfcVerify','WmiVerify','Apps','RestoreHealth','SfcScan','ScanFile',
-                        'WmiSalvage','ComponentCleanup','VolumeScan','Optimize','Chkdsk','Dns','Adapter','Winsock','IpReset')
+                        'WmiSalvage','ComponentCleanup','VolumeScan','Optimize','Chkdsk','Dns','Adapter','Winsock','IpReset','SpeedTest')
 
 function Get-ResultOk($Result) {
     $items = @($Result | Where-Object { $null -ne $_ })
@@ -1638,6 +1687,7 @@ function Get-Advice([string]$Key) {
             return @('cond', (T 'rec.onlyOnProblem'))
         }
         'ScanFile' { return @('cond', (T 'rec.onDemand')) }
+        'SpeedTest' { return @('cond', (T 'rec.speed')) }
         'ComponentCleanup' {
             $lastClean = $null
             if ($h) { $lastClean = $h.Time }
@@ -1663,6 +1713,17 @@ function Get-Advice([string]$Key) {
     @('cond', '')
 }
 
+function Update-SpeedView {
+    $h = $script:History['SpeedTest']
+    if (-not $h -or -not $h.Detail) { return }
+    $d = $h.Detail
+    $script:Ui.SpdDown.Text   = Format-Mbps $d.Down
+    $script:Ui.SpdUp.Text     = Format-Mbps $d.Up
+    $script:Ui.SpdPing.Text   = if ($null -ne $d.Ping)   { ([double]$d.Ping).ToString('N0', (Get-AppCulture)) } else { '-' }
+    $script:Ui.SpdJitter.Text = if ($null -ne $d.Jitter) { ([double]$d.Jitter).ToString('N0', (Get-AppCulture)) } else { '-' }
+    $script:Ui.TxtSpeedInfo.Text = T 'speed.info' $(if ($d.Server) { $d.Server } else { '-' }) $d.DownMB $d.UpMB
+}
+
 function Update-HistoryView {
     if (-not $script:Ui) { return }
     if ($null -eq $script:History) { $script:History = Read-RunHistory }
@@ -1673,13 +1734,15 @@ function Update-HistoryView {
         $adv = Get-Advice $k
         $h = $script:History[$k]
         $when = Format-Ago $(if ($h) { $h.Time } else { $null })
-        $last = if ($h -and $h.Ok -eq $true) { T 'hist.lastOk' $when }
+        $last = if ($k -eq 'SpeedTest') { T 'hist.last' $when }
+                elseif ($h -and $h.Ok -eq $true) { T 'hist.lastOk' $when }
                 elseif ($h -and $h.Ok -eq $false) { T 'hist.lastProblem' $when }
                 else { T 'hist.last' $when }
         $txt.Text = if ($adv[1]) { "$($adv[1])   |   $last" } else { $last }
         $dot.Fill = Get-Brush $(switch ($adv[0]) { 'due' { 'Accent' } 'warn' { 'Warn' } 'ok' { 'Good' } default { 'Text3' } })
         if ($adv[0] -in 'due', 'warn') { $dueCount++ }
     }
+    Update-SpeedView
     if ($script:LastData -and $script:Ui.HeroSub) {
         $base = T 'overview.lastcheck' ((Get-Date).ToString('t', (Get-AppCulture)))
         $script:Ui.HeroSub.Text = if ($dueCount) { "$base   |   $(T 'overview.recommended' $dueCount)" } else { "$base   |   $(T 'overview.uptodate')" }
@@ -1937,7 +2000,13 @@ function Save-WindowImage([string]$Path) {
     $c = $script:Win.Content; $w = [int]$c.ActualWidth; $h = [int]$c.ActualHeight
     $dv = New-Object System.Windows.Media.DrawingVisual; $dc = $dv.RenderOpen()
     $dc.DrawRectangle($script:Win.Background, $null, (New-Object System.Windows.Rect 0, 0, $w, $h))
-    $dc.DrawRectangle((New-Object System.Windows.Media.VisualBrush $c), $null, (New-Object System.Windows.Rect 0, 0, $w, $h))
+    # 1:1 mapping: by default a VisualBrush scales the visual's full bounds, including
+    # parts that overflow the window (clipped on screen), which squashed the image.
+    $vb = New-Object System.Windows.Media.VisualBrush $c
+    $vb.Stretch = 'None'; $vb.AlignmentX = 'Left'; $vb.AlignmentY = 'Top'
+    $vb.ViewboxUnits = 'Absolute'; $vb.Viewbox = New-Object System.Windows.Rect 0, 0, $w, $h
+    $vb.ViewportUnits = 'Absolute'; $vb.Viewport = New-Object System.Windows.Rect 0, 0, $w, $h
+    $dc.DrawRectangle($vb, $null, (New-Object System.Windows.Rect 0, 0, $w, $h))
     $dc.Close()
     $bmp = New-Object System.Windows.Media.Imaging.RenderTargetBitmap $w, $h, 96, 96, ([System.Windows.Media.PixelFormats]::Pbgra32)
     $bmp.Render($dv)
@@ -2197,6 +2266,21 @@ function Register-Handlers {
     })
     $u.BtnRecovery.Add_Click({
         Request-Restart (T 'recovery.confirm.title') (T 'recovery.confirm.text') -Recovery
+    })
+
+    $u.BtnSpeed.Add_Click({
+        Invoke-Background -Title (T 'speed.running') -Work { param($n, $p) Test-InternetSpeed -Notify $n } -Done {
+            param($r)
+            if (-not $r) { return }
+            $detail = if ($r.Ok) {
+                [pscustomobject]@{ Down = $r.DownMbps; Up = $r.UpMbps; Ping = $r.PingMs; Jitter = $r.JitterMs; Server = $r.Server
+                                   DownMB = [math]::Round($r.DownBytes / 1MB); UpMB = [math]::Round($r.UpBytes / 1MB) }
+            } else { $null }
+            Write-RunRecord -Key 'SpeedTest' -Ok $r.Ok -Detail $detail
+            $script:History = Read-RunHistory
+            Update-HistoryView
+            if (-not $r.Ok) { $script:Ui.TxtSpeedInfo.Text = T 'msg.speed.fail' $r.Error }
+        }
     })
 
     $u.BtnClearLog.Add_Click({ $script:LogItems.Clear(); $script:LogStore.Clear() })

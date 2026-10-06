@@ -8,7 +8,7 @@ A clean, minimal maintenance tool for **Windows 11**. It checks your PC's health
 
 ## Why WinCare
 
-**Only Windows' own tools.** Every check, cleanup and repair is done by tools that already ship with Windows: `DISM`, `SFC`, `chkdsk`, `winmgmt`, `netsh`, `ipconfig`, Windows Storage cmdlets and Windows' own Delivery Optimization cleanup. WinCare installs nothing, runs no background service, uses **no third-party cleaners or drivers**, sends no data anywhere and never writes to the registry. Your Windows settings are left alone; the only exceptions are the two network resets, which run only when you choose them and say so before they start.
+**Only Windows' own tools.** Every check, cleanup and repair is done by tools that already ship with Windows: `DISM`, `SFC`, `chkdsk`, `winmgmt`, `netsh`, `ipconfig`, Windows Storage cmdlets and Windows' own Delivery Optimization cleanup. WinCare installs nothing, runs no background service, uses **no third-party cleaners or drivers** and never writes to the registry. Nothing is sent anywhere — the only network traffic is the optional internet speed test, which runs only when you start it and exchanges nothing but test data with Cloudflare's public speed test (`speed.cloudflare.com`). Your Windows settings are left alone; the only exceptions are the two network resets, which run only when you choose them and say so before they start.
 
 **The common repair commands, one click away.** The commands people usually look up and type into an elevated command prompt — `sfc /scannow`, `DISM /RestoreHealth`, `chkdsk /f`, `netsh winsock reset` and the rest — are each a button. The exact command is shown next to the button. While it runs, a small live panel shows the command, the elapsed time, a real progress bar (read from the tool's own percentage output) and its latest output lines, so a long `DISM /RestoreHealth` never looks frozen. The full output is kept on the **Activity** page.
 
@@ -58,6 +58,7 @@ Run history is stored locally in `%APPDATA%\WinCare\history.json`.
 - **Startup problems** — restart into the recovery environment with the right `bootrec` / `bcdboot` commands for your firmware
 - **Disks** — free space, SMART health (temperature, wear, errors), read-only file system scan,
   `chkdsk /f` `/r` `/f /r /x`, media-aware optimization (TRIM for SSD, defrag for HDD only)
+- **Internet speed test** — download, upload, ping and jitter (4 parallel connections, warm-up ignored, ping via ICMP); the last result is kept
 - **Network** — connection diagnosis, `ipconfig /flushdns`, adapter restart,
   `netsh winsock reset` and `netsh int ip reset` (opt-in, with warnings)
 - **Live output** — the running command, elapsed time, real progress percentage and latest output lines, in a panel you can hide

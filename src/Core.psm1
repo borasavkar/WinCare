@@ -831,6 +831,155 @@ function Test-Network {
     $r
 }
 
+function Test-InternetSpeed {
+    <#
+        Internet speed test against Cloudflare's public endpoints
+        (speed.cloudflare.com, no account or key). Uses only the .NET HTTP stack
+        that ships with Windows. Runs only when the user starts it; no personal
+        data is sent - only test bytes are downloaded and uploaded.
+
+        Latency: median of ICMP pings to 1.1.1.1 (HTTP round trips if ICMP is
+        blocked); jitter is the mean difference between consecutive samples.
+        Throughput: 4 parallel connections, the first second is ignored (TCP
+        slow start), stops after $Seconds or a data cap.
+    #>
+    param([scriptblock]$Notify, [int]$Seconds = 8, [int]$Streams = 4,
+          [long]$DownCapBytes = 400MB, [long]$UpCapBytes = 100MB)
+
+    Add-Type -AssemblyName System.Net.Http
+    [Net.ServicePointManager]::SecurityProtocol = [Net.ServicePointManager]::SecurityProtocol -bor [Net.SecurityProtocolType]::Tls12
+    if ([Net.ServicePointManager]::DefaultConnectionLimit -lt 16) { [Net.ServicePointManager]::DefaultConnectionLimit = 16 }
+
+    $base = 'https://speed.cloudflare.com'
+    $r = [pscustomobject]@{ Ok = $false; PingMs = $null; JitterMs = $null; DownMbps = $null; UpMbps = $null
+                            Server = ''; DownBytes = [long]0; UpBytes = [long]0; Error = '' }
+    $client = New-Object System.Net.Http.HttpClient
+    $client.Timeout = [TimeSpan]::FromSeconds(30)
+    [void]$client.DefaultRequestHeaders.UserAgent.TryParseAdd('WinCare')
+    $mbps = { param([long]$Bytes, [double]$Ms) if ($Ms -le 0) { 0.0 } else { [math]::Round($Bytes * 8.0 / ($Ms / 1000.0) / 1e6, 1) } }
+
+    try {
+        # --- server location (Cloudflare data center code, e.g. IST, FRA) ---
+        try {
+            $trace = $client.GetStringAsync("$base/cdn-cgi/trace").GetAwaiter().GetResult()
+            if ($trace -match '(?m)^colo=(\w+)') { $r.Server = $Matches[1] }
+        } catch { }
+
+        # --- latency ---
+        Send-Progress $Notify (T 'msg.speed.ping') 'step'
+        $samples = New-Object System.Collections.Generic.List[double]
+        # ICMP to 1.1.1.1 (Cloudflare's own network) is what people know as "ping"
+        # and is far steadier than HTTP round trips, which include server work.
+        $icmp = New-Object System.Net.NetworkInformation.Ping
+        for ($i = 0; $i -lt 10; $i++) {
+            try { $x = $icmp.Send('1.1.1.1', 1500); if ($x.Status -eq 'Success') { $samples.Add([double]$x.RoundtripTime) } } catch { }
+            Send-Live $Notify (T 'msg.speed.ping') ($i / 10.0 * 100) ''
+            Start-Sleep -Milliseconds 100
+        }
+        $icmp.Dispose()
+        if ($samples.Count -lt 5) {
+            # ICMP blocked: fall back to HTTP round trips on a reused connection
+            $samples.Clear()
+            for ($i = 0; $i -lt 9; $i++) {
+                $sw = [Diagnostics.Stopwatch]::StartNew()
+                $resp = $client.GetAsync("$base/__down?bytes=0").GetAwaiter().GetResult()
+                [void]$resp.Content.ReadAsByteArrayAsync().GetAwaiter().GetResult()
+                $sw.Stop(); $resp.Dispose()
+                if ($i -gt 0) { $samples.Add($sw.Elapsed.TotalMilliseconds) }
+            }
+        }
+        $sorted = @($samples | Sort-Object)
+        $r.PingMs = [math]::Round($sorted[[int][math]::Floor($sorted.Count / 2)], 1)
+        $diffs = for ($i = 1; $i -lt $samples.Count; $i++) { [math]::Abs($samples[$i] - $samples[$i - 1]) }
+        $r.JitterMs = [math]::Round((@($diffs) | Measure-Object -Average).Average, 1)
+
+        # --- download ---
+        $title = T 'msg.speed.down'
+        Send-Progress $Notify $title 'step'
+        $url = "$base/__down?bytes=50000000"
+        $bodies = New-Object 'System.IO.Stream[]' $Streams
+        $reads  = New-Object 'System.Threading.Tasks.Task[int][]' $Streams
+        $bufs   = @(for ($i = 0; $i -lt $Streams; $i++) { , (New-Object byte[] 65536) })
+        $open = {
+            param([int]$Index)
+            $resp = $client.GetAsync($url, [Net.Http.HttpCompletionOption]::ResponseHeadersRead).GetAwaiter().GetResult()
+            [void]$resp.EnsureSuccessStatusCode()
+            $bodies[$Index] = $resp.Content.ReadAsStreamAsync().GetAwaiter().GetResult()
+            $reads[$Index] = $bodies[$Index].ReadAsync($bufs[$Index], 0, 65536)
+        }
+        for ($i = 0; $i -lt $Streams; $i++) { & $open $i }
+        $sw = [Diagnostics.Stopwatch]::StartNew()
+        $total = [long]0; $warm = $null; $nextTick = 0
+        while ($sw.ElapsedMilliseconds -lt $Seconds * 1000 -and $total -lt $DownCapBytes) {
+            $idx = [Threading.Tasks.Task]::WaitAny([Threading.Tasks.Task[]]$reads, 200)
+            if ($idx -ge 0) {
+                $n = $reads[$idx].Result
+                if ($n -le 0) { $bodies[$idx].Dispose(); & $open $idx }
+                else { $total += $n; $reads[$idx] = $bodies[$idx].ReadAsync($bufs[$idx], 0, 65536) }
+            }
+            if ($null -eq $warm -and $sw.ElapsedMilliseconds -ge 1000) { $warm = @{ Ms = $sw.Elapsed.TotalMilliseconds; Bytes = $total } }
+            if ($sw.ElapsedMilliseconds -ge $nextTick -and $warm) {
+                $nextTick = $sw.ElapsedMilliseconds + 250
+                $now = & $mbps ($total - $warm.Bytes) ($sw.Elapsed.TotalMilliseconds - $warm.Ms)
+                Send-Live $Notify $title ([math]::Min(100, $sw.ElapsedMilliseconds / ($Seconds * 10.0))) (T 'msg.speed.now' (Format-Mbps $now))
+            }
+        }
+        $elapsed = $sw.Elapsed.TotalMilliseconds
+        foreach ($b in $bodies) { if ($b) { try { $b.Dispose() } catch { } } }
+        if (-not $warm) { $warm = @{ Ms = 0; Bytes = 0 } }
+        $r.DownMbps = & $mbps ($total - $warm.Bytes) ($elapsed - $warm.Ms)
+        $r.DownBytes = $total
+
+        # --- upload ---
+        $title = T 'msg.speed.up'
+        Send-Progress $Notify $title 'step'
+        $chunk = New-Object byte[] (1MB)
+        (New-Object Random).NextBytes($chunk)                  # random: nothing can compress it
+        $posts = New-Object System.Collections.Generic.List[System.Threading.Tasks.Task]
+        $post = { $c = New-Object System.Net.Http.ByteArrayContent -ArgumentList (, $chunk); $client.PostAsync("$base/__up", $c) }
+        $sw = [Diagnostics.Stopwatch]::StartNew()
+        for ($i = 0; $i -lt $Streams; $i++) { $posts.Add((& $post)) }
+        $sent = [long]0; $warm = $null; $lastDone = 0.0
+        while ($posts.Count -gt 0) {
+            $idx = [Threading.Tasks.Task]::WaitAny($posts.ToArray(), 250)
+            if ($idx -ge 0) {
+                $t = $posts[$idx]; $posts.RemoveAt($idx)
+                if ($t.Status -eq 'RanToCompletion') {
+                    $t.Result.Dispose()
+                    $sent += $chunk.Length; $lastDone = $sw.Elapsed.TotalMilliseconds
+                    if ($sw.ElapsedMilliseconds -lt $Seconds * 1000 -and $sent -lt $UpCapBytes) { $posts.Add((& $post)) }
+                    $now = & $mbps $sent $lastDone
+                    Send-Live $Notify $title ([math]::Min(100, $sw.ElapsedMilliseconds / ($Seconds * 10.0))) (T 'msg.speed.now' (Format-Mbps $now))
+                }
+            }
+            if ($sw.ElapsedMilliseconds -gt ($Seconds + 20) * 1000) { break }        # hard stop on a stalled upload
+        }
+        # All bytes over the time until the last completed request. (A warm-up mark at
+        # the first completion is wrong here: parallel requests finish almost together,
+        # which divided most of the data by a tiny interval and overstated upload ~7x.)
+        $r.UpMbps = & $mbps $sent $lastDone
+        $r.UpBytes = $sent
+
+        $r.Ok = ($r.DownMbps -gt 0)
+        Send-Progress $Notify (T 'msg.speed.done' (Format-Mbps $r.DownMbps) (Format-Mbps $r.UpMbps) $r.PingMs) 'ok'
+    } catch {
+        $msg = if ($_.Exception.InnerException) { $_.Exception.InnerException.Message } else { $_.Exception.Message }
+        $r.Error = $msg
+        Send-Progress $Notify (T 'msg.speed.fail' $msg) 'error'
+    } finally {
+        $client.Dispose()
+    }
+    $r
+}
+
+function Format-Mbps {
+    param($Value)
+    if ($null -eq $Value) { return '-' }
+    $v = [double]$Value
+    if ($v -ge 100) { return $v.ToString('N0', $script:Culture) }
+    $v.ToString('N1', $script:Culture)
+}
+
 function Clear-DnsCache {
     param([scriptblock]$Notify)
     $r = Invoke-WindowsTool (Join-Path $env:SystemRoot 'System32\ipconfig.exe') @('/flushdns') -Notify $Notify
@@ -895,7 +1044,8 @@ function Read-RunHistory {
                 # PowerShell 7 turns ISO dates into DateTime, 5.1 keeps strings
                 $t = if ($v.Time -is [datetime]) { $v.Time } else {
                     [datetime]::Parse([string]$v.Time, [Globalization.CultureInfo]::InvariantCulture, [Globalization.DateTimeStyles]::RoundtripKind) }
-                $h[$pr.Name] = [pscustomobject]@{ Time = $t.ToLocalTime(); Ok = $v.Ok; Code = $v.Code }
+                $detail = if ($v.PSObject.Properties['Detail']) { $v.Detail } else { $null }
+                $h[$pr.Name] = [pscustomobject]@{ Time = $t.ToLocalTime(); Ok = $v.Ok; Code = $v.Code; Detail = $detail }
             }
         }
     } catch { }
@@ -903,19 +1053,19 @@ function Read-RunHistory {
 }
 
 function Write-RunRecord {
-    param([Parameter(Mandatory)][string]$Key, $Ok = $null, $Code = $null)
+    param([Parameter(Mandatory)][string]$Key, $Ok = $null, $Code = $null, $Detail = $null)
     $h = Read-RunHistory
-    $h[$Key] = [pscustomobject]@{ Time = Get-Date; Ok = $Ok; Code = $Code }
+    $h[$Key] = [pscustomobject]@{ Time = Get-Date; Ok = $Ok; Code = $Code; Detail = $Detail }
     $o = [ordered]@{}
     foreach ($k in ($h.Keys | Sort-Object)) {
         $r = $h[$k]
-        $o[$k] = [ordered]@{ Time = $r.Time.ToUniversalTime().ToString('o'); Ok = $r.Ok; Code = $r.Code }
+        $o[$k] = [ordered]@{ Time = $r.Time.ToUniversalTime().ToString('o'); Ok = $r.Ok; Code = $r.Code; Detail = $r.Detail }
     }
     try {
         $p = Get-RunHistoryPath
         $d = Split-Path -Parent $p
         if (-not (Test-Path -LiteralPath $d)) { New-Item -ItemType Directory -Path $d -Force | Out-Null }
-        [IO.File]::WriteAllText($p, ([pscustomobject]$o | ConvertTo-Json -Depth 3), (New-Object Text.UTF8Encoding($false)))
+        [IO.File]::WriteAllText($p, ([pscustomobject]$o | ConvertTo-Json -Depth 5), (New-Object Text.UTF8Encoding($false)))
     } catch { }
 }
 
@@ -962,6 +1112,6 @@ Export-ModuleMember -Function @(
     'Test-VolumeHealth','Repair-VolumeSpotFix','Get-OptimizeStatus','Invoke-Optimize',
     'Test-Network','Clear-DnsCache','Restart-NetworkAdapter',
     'Invoke-WindowsTool','Get-PercentFromText','Send-Live','Get-ProtectedFragments','Invoke-SfcScanFile','Test-WmiRepository','Repair-WmiRepository',
-    'Invoke-Chkdsk','Reset-NetworkStack',
+    'Invoke-Chkdsk','Reset-NetworkStack','Test-InternetSpeed','Format-Mbps',
     'Get-RunHistoryPath','Read-RunHistory','Write-RunRecord','Get-LastUpdateDate','Get-ComponentCleanupTask'
 )
