@@ -180,46 +180,114 @@ function Test-IsAdmin {
 # =============================================================================
 #  Running Windows tools
 # =============================================================================
+function Get-PercentFromText {
+    <#
+        Progress percentage in a tool's output line, or $null.
+        Digits are language independent: "45%" (English) and "%45" (Turkish)
+        both work. chkdsk prints "Stage: 45%; Total: 12%": the LAST value wins.
+    #>
+    param([string]$Text)
+    $all = [regex]::Matches($Text, '(?<a>\d{1,3}(?:[.,]\d+)?)\s?%|%\s?(?<b>\d{1,3}(?:[.,]\d+)?)')
+    if (-not $all.Count) { return $null }
+    $m = $all[$all.Count - 1]
+    $v = if ($m.Groups['a'].Success) { $m.Groups['a'].Value } else { $m.Groups['b'].Value }
+    $d = [double]::Parse($v.Replace(',', '.'), [Globalization.CultureInfo]::InvariantCulture)
+    [math]::Max(0.0, [math]::Min(100.0, $d))   # double literals: Max(0, x) would pick the int overload and round
+}
+
+function Send-Live {
+    <# Live progress for the output panel; not written to the activity log. #>
+    param([scriptblock]$Notify, [string]$Command, $Percent, [string]$Line)
+    if ($null -eq $Notify) { return }
+    try { & $Notify ([pscustomobject]@{ Text = $Line; Kind = 'live'; Time = Get-Date; Command = $Command; Percent = $Percent }) } catch { }
+}
+
 function Invoke-WindowsTool {
     <#
-        Runs a built-in Windows tool and streams its meaningful output lines.
-        Progress bars and percentage lines are dropped. Results are judged by
-        exit code only: the text is in the OS language and is never parsed.
+        Runs a built-in Windows tool and STREAMS its output while it runs:
+          - progress lines (DISM's "[=== 42.0% ]", "Verification 45% complete")
+            become live percentage updates, rate limited
+          - every other line is reported once, as it appears
+        Output is read character by character because DISM and SFC redraw
+        their progress with a bare carriage return (no new line).
+        Results are judged by exit code only: the text is in the OS language.
     #>
     param(
         [Parameter(Mandatory)][string]$FilePath,
         [string[]]$Arguments = @(),
         [string]$InputText,
         [switch]$Unicode,          # sfc.exe writes UTF-16
-        [switch]$Quiet,
+        [switch]$Quiet,            # lines go to the live panel only, not the log
         [scriptblock]$Notify
     )
     $name = [IO.Path]::GetFileNameWithoutExtension($FilePath)
     $display = (@($name) + $Arguments) -join ' '
     Send-Progress $Notify "> $display" 'step'
+
     $lines = New-Object System.Collections.Generic.List[string]
+    $state = @{ Pct = -1.0; Sent = [datetime]::MinValue; Seen = @{} }
     $code = -1
-    $oldEnc = $null
-    try {
-        if ($Unicode) { try { $oldEnc = [Console]::OutputEncoding; [Console]::OutputEncoding = [Text.Encoding]::Unicode } catch { $oldEnc = $null } }
-        if ($InputText) { $raw = $InputText | & $FilePath @Arguments 2>&1 | Out-String }
-        else            { $raw = & $FilePath @Arguments 2>&1 | Out-String }
-        $code = $LASTEXITCODE
-    } catch {
-        $raw = $_.Exception.Message
-    } finally {
-        if ($oldEnc) { try { [Console]::OutputEncoding = $oldEnc } catch { } }
-    }
-    $seen = @{}
-    foreach ($l in (("$raw" -replace "`0", '') -split "[`r`n]+")) {
-        $t = $l.Trim()
-        if (-not $t) { continue }
-        if ($t -match '^\[[=\s\d.,%]*\]$') { continue }                  # DISM progress bar
-        if ($t -match '(\d+([.,]\d+)?\s?%)|(%\s?\d+)') { continue }       # "Verification 45% complete"
-        if ($seen.ContainsKey($t)) { continue }
-        $seen[$t] = $true
+
+    function Read-Segment([string]$Segment) {
+        $t = $Segment.Trim()
+        if (-not $t) { return }
+        $pct = Get-PercentFromText $t
+        if ($null -ne $pct) {
+            $now = Get-Date
+            if ([math]::Abs($pct - $state.Pct) -ge 0.1 -and ($now - $state.Sent).TotalMilliseconds -ge 200) {
+                $state.Pct = $pct; $state.Sent = $now
+                Send-Live $Notify $display $pct $t
+            }
+            return
+        }
+        if ($t -match '^\[[=\s\d.,%]*\]$') { return }       # empty DISM bar
+        if ($state.Seen.ContainsKey($t)) { return }
+        $state.Seen[$t] = $true
         $lines.Add($t)
-        if (-not $Quiet) { Send-Progress $Notify "    $t" 'info' }
+        if ($Quiet) { Send-Live $Notify $display $null $t } else { Send-Progress $Notify "    $t" 'info' }
+    }
+
+    $quoted = @($Arguments | ForEach-Object { if ($_ -match '\s') { '"' + $_ + '"' } else { $_ } }) -join ' '
+    $psi = New-Object System.Diagnostics.ProcessStartInfo $FilePath, $quoted
+    $psi.UseShellExecute = $false
+    $psi.CreateNoWindow = $true
+    $psi.RedirectStandardOutput = $true
+    $psi.RedirectStandardError = $true
+    $psi.RedirectStandardInput = [bool]$InputText
+    # Without a visible console (WinCare.exe starts PowerShell with no window) the
+    # console code page is unreliable; redirected tools then write in the OEM code
+    # page of the system locale (857 on Turkish Windows), so that is used directly.
+    $enc = if ($Unicode) { [Text.Encoding]::Unicode } else {
+        [Text.Encoding]::GetEncoding([Globalization.CultureInfo]::CurrentCulture.TextInfo.OEMCodePage) }
+    $psi.StandardOutputEncoding = $enc
+    $psi.StandardErrorEncoding = $enc
+
+    $proc = $null
+    try {
+        $proc = [Diagnostics.Process]::Start($psi)
+        if ($InputText) { $proc.StandardInput.Write($InputText); $proc.StandardInput.Close() }
+        $errTask = $proc.StandardError.ReadToEndAsync()     # drained in parallel: no pipe deadlock
+        $buf = New-Object char[] 2048
+        $sb = New-Object System.Text.StringBuilder
+        while (($n = $proc.StandardOutput.Read($buf, 0, $buf.Length)) -gt 0) {
+            for ($i = 0; $i -lt $n; $i++) {
+                $c = $buf[$i]
+                if ($c -eq "`r" -or $c -eq "`n") {
+                    if ($sb.Length) { Read-Segment $sb.ToString(); [void]$sb.Clear() }
+                } elseif ($c -ne [char]0) {
+                    [void]$sb.Append($c)
+                }
+            }
+        }
+        if ($sb.Length) { Read-Segment $sb.ToString() }
+        $proc.WaitForExit()
+        $code = $proc.ExitCode
+        foreach ($l in ($errTask.Result -split "[`r`n]+")) { Read-Segment $l }
+    } catch {
+        $lines.Add($_.Exception.Message)
+        Send-Progress $Notify $_.Exception.Message 'error'
+    } finally {
+        if ($proc) { $proc.Dispose() }
     }
     [pscustomobject]@{ Command = $display; ExitCode = $code; Lines = $lines; Ok = ($code -eq 0) }
 }
@@ -893,7 +961,7 @@ Export-ModuleMember -Function @(
     'Get-ComponentStoreAnalysis','Invoke-ComponentCleanup',
     'Test-VolumeHealth','Repair-VolumeSpotFix','Get-OptimizeStatus','Invoke-Optimize',
     'Test-Network','Clear-DnsCache','Restart-NetworkAdapter',
-    'Invoke-WindowsTool','Get-ProtectedFragments','Invoke-SfcScanFile','Test-WmiRepository','Repair-WmiRepository',
+    'Invoke-WindowsTool','Get-PercentFromText','Send-Live','Get-ProtectedFragments','Invoke-SfcScanFile','Test-WmiRepository','Repair-WmiRepository',
     'Invoke-Chkdsk','Reset-NetworkStack',
     'Get-RunHistoryPath','Read-RunHistory','Write-RunRecord','Get-LastUpdateDate','Get-ComponentCleanupTask'
 )

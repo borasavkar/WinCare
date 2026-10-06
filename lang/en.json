@@ -353,5 +353,8 @@
   "rec.netNow": "Recommended - your connection has a problem",
   "rec.netOnly": "Only needed if you have connection problems",
   "overview.recommended": "{0} task(s) recommended",
-  "overview.uptodate": "Maintenance is up to date"
+  "overview.uptodate": "Maintenance is up to date",
+  "live.hide": "Hide output",
+  "live.show": "Show output",
+  "live.percent": "{0}%"
 }

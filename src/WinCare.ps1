@@ -1137,18 +1137,44 @@ $script:XamlTemplate = @'
       </ScrollViewer>
     </Grid>
 
-    <!-- ============ STATUS BAR ============ -->
+    <!-- ============ STATUS BAR + LIVE OUTPUT ============ -->
     <Border Grid.Column="1" Grid.Row="1" Background="{StaticResource Bg}" BorderBrush="{StaticResource StrokeSoft}" BorderThickness="0,1,0,0" Padding="36,10,36,12">
-      <Grid>
-        <Grid.ColumnDefinitions><ColumnDefinition Width="Auto"/><ColumnDefinition Width="*"/><ColumnDefinition Width="Auto"/></Grid.ColumnDefinitions>
-        <TextBlock x:Name="StatusIcon" Text="&#xE73E;" FontFamily="{StaticResource Icons}" FontSize="13" Foreground="{StaticResource Good}" VerticalAlignment="Center" Margin="0,0,10,0"/>
-        <StackPanel Grid.Column="1" VerticalAlignment="Center">
-          <TextBlock x:Name="StatusText" Text="[[status.ready]]" FontSize="12.5" Foreground="{StaticResource Text2}" TextTrimming="CharacterEllipsis"/>
-          <ProgressBar x:Name="StatusBar" IsIndeterminate="True" Height="2" Margin="0,6,0,0" Visibility="Collapsed"
-                       Foreground="{StaticResource Accent}" Background="Transparent" BorderThickness="0"/>
-        </StackPanel>
-        <Button x:Name="BtnStop" Grid.Column="2" Style="{StaticResource Subtle}" Content="[[status.stop]]" Visibility="Collapsed" Margin="12,0,0,0"/>
-      </Grid>
+      <StackPanel>
+        <Border x:Name="LivePanel" Visibility="Collapsed" Background="{StaticResource Log}" BorderBrush="{StaticResource Stroke}"
+                BorderThickness="1" CornerRadius="8" Padding="16,12,16,12" Margin="0,4,0,10">
+          <StackPanel>
+            <Grid>
+              <Grid.ColumnDefinitions><ColumnDefinition Width="Auto"/><ColumnDefinition Width="*"/><ColumnDefinition Width="Auto"/></Grid.ColumnDefinitions>
+              <TextBlock Text="&#xE756;" FontFamily="{StaticResource Icons}" FontSize="13" Foreground="{StaticResource Accent}" VerticalAlignment="Center" Margin="0,0,10,0"/>
+              <TextBlock x:Name="LiveCmd" Grid.Column="1" Text="" FontFamily="Cascadia Mono, Consolas" FontSize="12.5" FontWeight="SemiBold"
+                         Foreground="{StaticResource Text}" TextTrimming="CharacterEllipsis" VerticalAlignment="Center"/>
+              <TextBlock x:Name="LiveTime" Grid.Column="2" Text="00:00" FontFamily="Cascadia Mono, Consolas" FontSize="12"
+                         Foreground="{StaticResource Text3}" VerticalAlignment="Center" Margin="12,0,0,0"/>
+            </Grid>
+            <Grid x:Name="LiveBarRow" Margin="0,12,0,2" Visibility="Collapsed">
+              <Grid.ColumnDefinitions><ColumnDefinition Width="*"/><ColumnDefinition Width="Auto"/></Grid.ColumnDefinitions>
+              <ProgressBar x:Name="LiveBar" Style="{StaticResource Bar}" Foreground="{StaticResource Accent}" VerticalAlignment="Center"/>
+              <TextBlock x:Name="LivePct" Grid.Column="1" Text="" FontSize="12.5" FontWeight="SemiBold" Foreground="{StaticResource Text}"
+                         MinWidth="48" TextAlignment="Right" Margin="12,0,0,0"/>
+            </Grid>
+            <TextBlock x:Name="LiveLines" Text="" FontFamily="Cascadia Mono, Consolas" FontSize="11.5" Foreground="{StaticResource Text2}"
+                       TextWrapping="NoWrap" TextTrimming="CharacterEllipsis" LineHeight="18" Margin="26,10,0,0"/>
+            <TextBlock x:Name="LiveRaw" Text="" FontFamily="Cascadia Mono, Consolas" FontSize="11.5" Foreground="{StaticResource Text3}"
+                       TextTrimming="CharacterEllipsis" Margin="26,2,0,0"/>
+          </StackPanel>
+        </Border>
+        <Grid>
+          <Grid.ColumnDefinitions><ColumnDefinition Width="Auto"/><ColumnDefinition Width="*"/><ColumnDefinition Width="Auto"/><ColumnDefinition Width="Auto"/></Grid.ColumnDefinitions>
+          <TextBlock x:Name="StatusIcon" Text="&#xE73E;" FontFamily="{StaticResource Icons}" FontSize="13" Foreground="{StaticResource Good}" VerticalAlignment="Center" Margin="0,0,10,0"/>
+          <StackPanel Grid.Column="1" VerticalAlignment="Center">
+            <TextBlock x:Name="StatusText" Text="[[status.ready]]" FontSize="12.5" Foreground="{StaticResource Text2}" TextTrimming="CharacterEllipsis"/>
+            <ProgressBar x:Name="StatusBar" IsIndeterminate="True" Height="2" Margin="0,6,0,0" Visibility="Collapsed"
+                         Foreground="{StaticResource Accent}" Background="Transparent" BorderThickness="0"/>
+          </StackPanel>
+          <Button x:Name="BtnLiveToggle" Grid.Column="2" Style="{StaticResource Subtle}" Content="[[live.hide]]" Visibility="Collapsed" Margin="12,0,0,0"/>
+          <Button x:Name="BtnStop" Grid.Column="3" Style="{StaticResource Subtle}" Content="[[status.stop]]" Visibility="Collapsed" Margin="4,0,0,0"/>
+        </Grid>
+      </StackPanel>
     </Border>
 
     <!-- ============ DIALOG ============ -->
@@ -1181,6 +1207,7 @@ $script:Shared = [hashtable]::Synchronized(@{
     Queue = [System.Collections.Queue]::Synchronized((New-Object System.Collections.Queue))
     Busy = $false; Done = $false; Result = $null
 })
+$script:LiveHidden = $false; $script:LiveStart = $null; $script:LiveBuffer = $null; $script:LiveTitle = ''
 $script:Job = $null; $script:JobHandle = $null; $script:OnDone = $null; $script:OnDoneHistory = ''; $script:Stopped = $false; $script:History = $null
 $script:DriveButtons = @(); $script:SelectedDrive = $null; $script:RestartRecovery = $false
 
@@ -1197,6 +1224,8 @@ function Set-Busy([bool]$Busy, [string]$Text) {
     foreach ($rb in $script:DriveButtons) { $rb.IsEnabled = -not $Busy }
     $script:Ui.StatusBar.Visibility = if ($Busy) { 'Visible' } else { 'Collapsed' }
     $script:Ui.BtnStop.Visibility   = if ($Busy) { 'Visible' } else { 'Collapsed' }
+    $script:Ui.BtnLiveToggle.Visibility = if ($Busy) { 'Visible' } else { 'Collapsed' }
+    if (-not $Busy) { $script:Ui.LivePanel.Visibility = 'Collapsed'; $script:LiveStart = $null }
     $script:Ui.StatusIcon.Text       = if ($Busy) { [string][char]0xE895 } else { [string][char]0xE73E }
     $script:Ui.StatusIcon.Foreground = if ($Busy) { Get-Brush 'Accent' } else { Get-Brush 'Good' }
     if ($Text) { $script:Ui.StatusText.Text = $Text }
@@ -1215,6 +1244,51 @@ function Add-Log([string]$Text, [string]$Kind = 'info') {
     if ($script:Ui.LogScroll) { $script:Ui.LogScroll.ScrollToEnd() }
 }
 
+# --- Live output panel -----------------------------------------------------
+function Start-LiveSection([string]$Title) {
+    $script:LiveTitle = $Title
+    $script:LiveBuffer = New-Object System.Collections.Generic.List[string]
+    $script:LiveStart = Get-Date
+    $script:Ui.LiveCmd.Text = $Title
+    $script:Ui.LiveLines.Text = ''
+    $script:Ui.LiveRaw.Text = ''
+    $script:Ui.LivePct.Text = ''
+    $script:Ui.LiveBar.Value = 0
+    $script:Ui.LiveBarRow.Visibility = 'Collapsed'
+    $script:Ui.LiveTime.Text = '00:00'
+    if (-not $script:LiveHidden) { $script:Ui.LivePanel.Visibility = 'Visible' }
+}
+
+function Add-LiveLine([string]$Line) {
+    # $null check, not -not: an EMPTY list is falsy in PowerShell and would never fill up
+    if ($null -eq $script:LiveBuffer -or -not $Line) { return }
+    $script:LiveBuffer.Add($Line.Trim())
+    while ($script:LiveBuffer.Count -gt 5) { $script:LiveBuffer.RemoveAt(0) }
+    $script:Ui.LiveLines.Text = ($script:LiveBuffer -join "`n")
+}
+
+function Set-LivePercent([double]$Percent, [string]$Raw) {
+    $script:Ui.LiveBarRow.Visibility = 'Visible'
+    $script:Ui.LiveBar.Value = $Percent
+    $script:Ui.LivePct.Text = T 'live.percent' ([math]::Round($Percent))
+    if ($Raw) { $script:Ui.LiveRaw.Text = $Raw }
+    $script:Ui.StatusText.Text = "$($script:LiveTitle)   $($script:Ui.LivePct.Text)"
+}
+
+function Receive-Message($m) {
+    if ($m.Kind -eq 'live') {
+        if ($null -ne $m.Percent) { Set-LivePercent ([double]$m.Percent) $m.Text }
+        elseif ($m.Text) { Add-LiveLine $m.Text }
+        return
+    }
+    Add-Log $m.Text $m.Kind
+    switch ($m.Kind) {
+        'step'  { Start-LiveSection ($m.Text -replace '^>\s*', ''); $script:Ui.StatusText.Text = $m.Text }
+        'info'  { Add-LiveLine $m.Text }
+        default { Add-LiveLine $m.Text; $script:Ui.StatusText.Text = $m.Text }
+    }
+}
+
 function Invoke-Background {
     param([Parameter(Mandatory)][scriptblock]$Work, [string]$Title, [scriptblock]$Done, [hashtable]$Params = @{}, [string]$History = '')
     if ($script:Shared.Busy) { return }
@@ -1222,7 +1296,7 @@ function Invoke-Background {
     $script:OnDone = $Done
     $script:OnDoneHistory = $History
     Set-Busy $true $Title
-    if ($Title) { Add-Log $Title 'step' }
+    if ($Title) { Add-Log $Title 'step'; Start-LiveSection $Title }
 
     $rs = [runspacefactory]::CreateRunspace()
     $rs.ApartmentState = 'MTA'; $rs.ThreadOptions = 'ReuseThread'; $rs.Open()
@@ -1249,9 +1323,13 @@ function Invoke-Background {
 }
 
 function Invoke-Pump {
+    if ($script:LiveStart -and $script:Ui.LivePanel.Visibility -eq 'Visible') {
+        $e = (Get-Date) - $script:LiveStart
+        $script:Ui.LiveTime.Text = if ($e.TotalHours -ge 1) { $e.ToString('h\:mm\:ss') } else { $e.ToString('mm\:ss') }
+    }
     while ($script:Shared.Queue.Count -gt 0) {
         $m = $script:Shared.Queue.Dequeue()
-        if ($m) { Add-Log $m.Text $m.Kind; $script:Ui.StatusText.Text = $m.Text }
+        if ($m) { Receive-Message $m }
     }
     if ($script:Shared.Busy -and $script:Shared.Done) {
         $script:Shared.Busy = $false
@@ -1828,7 +1906,8 @@ function Register-Screenshots {
     $script:ShotTimer.Add_Tick({
         if ((-not $script:LastData -or $script:Shared.Busy) -and $script:ShotWait -lt 150) { $script:ShotWait++; return }
         if ($script:ShotIndex -ge 0) {
-            $name = '{0}-{1}-{2}.png' -f $script:Settings.Language, $script:Settings.Theme, $script:ShotPages[$script:ShotIndex].Substring(3).ToLowerInvariant()
+            $pg = $script:ShotPages[$script:ShotIndex]
+            $name = '{0}-{1}-{2}.png' -f $script:Settings.Language, $script:Settings.Theme, ($pg -replace '^Nav', '').ToLowerInvariant()
             Save-WindowImage (Join-Path $ScreenshotDir $name)
             # Text dump of the run-history lines, for automated checks
             $lines = foreach ($k in $script:HistoryKeys) { if ($script:Ui["Hist$k"]) { "{0,-17} {1}" -f $k, $script:Ui["Hist$k"].Text } }
@@ -1836,9 +1915,21 @@ function Register-Screenshots {
         }
         $script:ShotIndex++
         if ($script:ShotIndex -ge $script:ShotPages.Count) { $script:ShotTimer.Stop(); $script:Rebuild = $false; $script:Win.Close(); return }
-        $script:Ui[$script:ShotPages[$script:ShotIndex]].IsChecked = $true
+        if ($script:ShotIndex -gt 0 -and $script:ShotPages[$script:ShotIndex - 1] -eq 'Live') { Set-Busy $false 'Ready' }
+        $next = $script:ShotPages[$script:ShotIndex]
+        if ($next -eq 'Live') { Show-LiveDemo } else { $script:Ui[$next].IsChecked = $true }
     })
     $script:Win.Add_ContentRendered({ $script:ShotTimer.Start() })
+}
+
+function Show-LiveDemo {
+    # Screenshot mode only: shows the live panel with sample output (nothing is run)
+    Set-Busy $true ''
+    Start-LiveSection 'DISM /Online /Cleanup-Image /RestoreHealth'
+    $script:LiveStart = (Get-Date).AddSeconds(-252)
+    $script:Ui.LiveTime.Text = '04:12'
+    foreach ($l in 'Deployment Image Servicing and Management tool', 'Version: 10.0.26100.1', 'Image Version: 10.0.26300.9550') { Add-LiveLine $l }
+    Set-LivePercent 42 '[=====================42.0%                          ]'
 }
 
 function Save-WindowImage([string]$Path) {
@@ -1866,6 +1957,12 @@ function Request-Rebuild {
 # =============================================================================
 function Register-Handlers {
     $u = $script:Ui
+
+    $u.BtnLiveToggle.Add_Click({
+        $script:LiveHidden = -not $script:LiveHidden
+        $script:Ui.LivePanel.Visibility = if ($script:LiveHidden) { 'Collapsed' } else { 'Visible' }
+        $script:Ui.BtnLiveToggle.Content = if ($script:LiveHidden) { T 'live.show' } else { T 'live.hide' }
+    })
 
     $u.BtnStop.Add_Click({
         if ($script:Job) { try { $script:Job.Stop() } catch { }; $script:Stopped = $true; Add-Log (T 'status.stopped') 'warn'; $script:Shared.Done = $true }

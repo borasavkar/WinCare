@@ -353,5 +353,8 @@
   "rec.netNow": "Önerilir - bağlantınızda sorun var",
   "rec.netOnly": "Yalnızca bağlantı sorununuz varsa gerekir",
   "overview.recommended": "{0} bakım önerisi var",
-  "overview.uptodate": "Bakım güncel"
+  "overview.uptodate": "Bakım güncel",
+  "live.hide": "Çıktıyı gizle",
+  "live.show": "Çıktıyı göster",
+  "live.percent": "%{0}"
 }
