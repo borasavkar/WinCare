@@ -807,6 +807,81 @@ function Restart-NetworkAdapter {
     }
 }
 
+# =============================================================================
+#  Run history (when each command last ran and how it ended)
+# =============================================================================
+function Get-RunHistoryPath {
+    # WINCARE_HISTORY overrides the location (tests and screenshots use a throwaway file)
+    if ($env:WINCARE_HISTORY) { return $env:WINCARE_HISTORY }
+    Join-Path (Join-Path $env:APPDATA 'WinCare') 'history.json'
+}
+
+function Read-RunHistory {
+    $h = @{}
+    try {
+        $p = Get-RunHistoryPath
+        if (Test-Path -LiteralPath $p) {
+            $j = [IO.File]::ReadAllText($p, [Text.Encoding]::UTF8) | ConvertFrom-Json
+            foreach ($pr in $j.PSObject.Properties) {
+                $v = $pr.Value
+                # PowerShell 7 turns ISO dates into DateTime, 5.1 keeps strings
+                $t = if ($v.Time -is [datetime]) { $v.Time } else {
+                    [datetime]::Parse([string]$v.Time, [Globalization.CultureInfo]::InvariantCulture, [Globalization.DateTimeStyles]::RoundtripKind) }
+                $h[$pr.Name] = [pscustomobject]@{ Time = $t.ToLocalTime(); Ok = $v.Ok; Code = $v.Code }
+            }
+        }
+    } catch { }
+    $h
+}
+
+function Write-RunRecord {
+    param([Parameter(Mandatory)][string]$Key, $Ok = $null, $Code = $null)
+    $h = Read-RunHistory
+    $h[$Key] = [pscustomobject]@{ Time = Get-Date; Ok = $Ok; Code = $Code }
+    $o = [ordered]@{}
+    foreach ($k in ($h.Keys | Sort-Object)) {
+        $r = $h[$k]
+        $o[$k] = [ordered]@{ Time = $r.Time.ToUniversalTime().ToString('o'); Ok = $r.Ok; Code = $r.Code }
+    }
+    try {
+        $p = Get-RunHistoryPath
+        $d = Split-Path -Parent $p
+        if (-not (Test-Path -LiteralPath $d)) { New-Item -ItemType Directory -Path $d -Force | Out-Null }
+        [IO.File]::WriteAllText($p, ([pscustomobject]$o | ConvertTo-Json -Depth 3), (New-Object Text.UTF8Encoding($false)))
+    } catch { }
+}
+
+function Get-LastUpdateDate {
+    <# Date of the most recently installed Windows update (hotfix list). #>
+    try {
+        $last = $null
+        foreach ($q in (Get-CimInstance Win32_QuickFixEngineering -ErrorAction Stop)) {
+            $v = $q.InstalledOn
+            if (-not $v) { continue }
+            # Get-CimInstance already returns a DateTime; older providers give "M/d/yyyy" text
+            $d = $null
+            if ($v -is [datetime]) { $d = $v }
+            else {
+                $p = [datetime]::MinValue
+                if ([datetime]::TryParseExact(([string]$v).Trim(), @('M/d/yyyy', 'MM/dd/yyyy', 'yyyyMMdd', 'M/d/yyyy H:mm:ss'),
+                        [Globalization.CultureInfo]::InvariantCulture, [Globalization.DateTimeStyles]::None, [ref]$p)) { $d = $p }
+            }
+            if ($d -and (-not $last -or $d -gt $last)) { $last = $d }
+        }
+        return $last
+    } catch { return $null }
+}
+
+function Get-ComponentCleanupTask {
+    <# Windows runs StartComponentCleanup on its own; this returns when it last did. #>
+    try {
+        $i = Get-ScheduledTask -TaskPath '\Microsoft\Windows\Servicing\' -TaskName 'StartComponentCleanup' -ErrorAction Stop |
+             Get-ScheduledTaskInfo -ErrorAction Stop
+        if ($i.LastRunTime -and $i.LastRunTime -gt [datetime]'2000-01-01') { return $i.LastRunTime }
+    } catch { }
+    $null
+}
+
 Export-ModuleMember -Function @(
     'Read-LanguageFile','Get-AvailableLanguages','Get-DefaultLanguageCode','Initialize-Language','T','Get-AppCulture',
     'Send-Progress','Format-Size','Get-FolderSize','Test-SafePath','Test-IsAdmin',
@@ -819,5 +894,6 @@ Export-ModuleMember -Function @(
     'Test-VolumeHealth','Repair-VolumeSpotFix','Get-OptimizeStatus','Invoke-Optimize',
     'Test-Network','Clear-DnsCache','Restart-NetworkAdapter',
     'Invoke-WindowsTool','Get-ProtectedFragments','Invoke-SfcScanFile','Test-WmiRepository','Repair-WmiRepository',
-    'Invoke-Chkdsk','Reset-NetworkStack'
+    'Invoke-Chkdsk','Reset-NetworkStack',
+    'Get-RunHistoryPath','Read-RunHistory','Write-RunRecord','Get-LastUpdateDate','Get-ComponentCleanupTask'
 )

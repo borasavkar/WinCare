@@ -660,6 +660,11 @@ $script:XamlTemplate = @'
                 <TextBlock Text="[[health.check]]" Style="{StaticResource Body}"/>
                 <TextBlock Text="[[health.check.desc]]" Style="{StaticResource Caption}" Margin="0,3,0,0"/>
                 <TextBlock Text="DISM /Online /Cleanup-Image /CheckHealth" Style="{StaticResource Cmd}"/>
+                <Grid Margin="0,8,0,0">
+                  <Grid.ColumnDefinitions><ColumnDefinition Width="Auto"/><ColumnDefinition Width="*"/></Grid.ColumnDefinitions>
+                  <Ellipse x:Name="HistDotCheckHealth" Width="7" Height="7" Fill="{StaticResource Text3}" VerticalAlignment="Top" Margin="0,5,8,0"/>
+                  <TextBlock x:Name="HistCheckHealth" Grid.Column="1" Text="" FontSize="12" Foreground="{StaticResource Text2}" TextWrapping="Wrap"/>
+                </Grid>
                 <TextBlock x:Name="TxtCheckState" Text="" Style="{StaticResource State}"/>
               </StackPanel>
               <StackPanel Grid.Column="2" Orientation="Horizontal" VerticalAlignment="Top">
@@ -675,6 +680,11 @@ $script:XamlTemplate = @'
                 <TextBlock Text="[[health.scan]]" Style="{StaticResource Body}"/>
                 <TextBlock Text="[[health.scan.desc]]" Style="{StaticResource Caption}" Margin="0,3,0,0"/>
                 <TextBlock Text="DISM /Online /Cleanup-Image /ScanHealth" Style="{StaticResource Cmd}"/>
+                <Grid Margin="0,8,0,0">
+                  <Grid.ColumnDefinitions><ColumnDefinition Width="Auto"/><ColumnDefinition Width="*"/></Grid.ColumnDefinitions>
+                  <Ellipse x:Name="HistDotScanHealth" Width="7" Height="7" Fill="{StaticResource Text3}" VerticalAlignment="Top" Margin="0,5,8,0"/>
+                  <TextBlock x:Name="HistScanHealth" Grid.Column="1" Text="" FontSize="12" Foreground="{StaticResource Text2}" TextWrapping="Wrap"/>
+                </Grid>
                 <TextBlock x:Name="TxtScanState" Text="" Style="{StaticResource State}"/>
               </StackPanel>
               <StackPanel Grid.Column="2" Orientation="Horizontal" VerticalAlignment="Top">
@@ -690,6 +700,11 @@ $script:XamlTemplate = @'
                 <TextBlock Text="[[health.verify]]" Style="{StaticResource Body}"/>
                 <TextBlock Text="[[health.verify.desc]]" Style="{StaticResource Caption}" Margin="0,3,0,0"/>
                 <TextBlock Text="sfc /verifyonly" Style="{StaticResource Cmd}"/>
+                <Grid Margin="0,8,0,0">
+                  <Grid.ColumnDefinitions><ColumnDefinition Width="Auto"/><ColumnDefinition Width="*"/></Grid.ColumnDefinitions>
+                  <Ellipse x:Name="HistDotSfcVerify" Width="7" Height="7" Fill="{StaticResource Text3}" VerticalAlignment="Top" Margin="0,5,8,0"/>
+                  <TextBlock x:Name="HistSfcVerify" Grid.Column="1" Text="" FontSize="12" Foreground="{StaticResource Text2}" TextWrapping="Wrap"/>
+                </Grid>
                 <TextBlock x:Name="TxtVerifyState" Text="" Style="{StaticResource State}"/>
               </StackPanel>
               <StackPanel Grid.Column="2" Orientation="Horizontal" VerticalAlignment="Top">
@@ -705,6 +720,11 @@ $script:XamlTemplate = @'
                 <TextBlock Text="[[health.wmi]]" Style="{StaticResource Body}"/>
                 <TextBlock Text="[[health.wmi.desc]]" Style="{StaticResource Caption}" Margin="0,3,0,0"/>
                 <TextBlock Text="winmgmt /verifyrepository" Style="{StaticResource Cmd}"/>
+                <Grid Margin="0,8,0,0">
+                  <Grid.ColumnDefinitions><ColumnDefinition Width="Auto"/><ColumnDefinition Width="*"/></Grid.ColumnDefinitions>
+                  <Ellipse x:Name="HistDotWmiVerify" Width="7" Height="7" Fill="{StaticResource Text3}" VerticalAlignment="Top" Margin="0,5,8,0"/>
+                  <TextBlock x:Name="HistWmiVerify" Grid.Column="1" Text="" FontSize="12" Foreground="{StaticResource Text2}" TextWrapping="Wrap"/>
+                </Grid>
                 <TextBlock x:Name="TxtWmiState" Text="" Style="{StaticResource State}"/>
               </StackPanel>
               <StackPanel Grid.Column="2" Orientation="Horizontal" VerticalAlignment="Top">
@@ -720,6 +740,11 @@ $script:XamlTemplate = @'
                 <TextBlock Text="[[health.apps]]" Style="{StaticResource Body}"/>
                 <TextBlock Text="[[health.apps.desc]]" Style="{StaticResource Caption}" Margin="0,3,0,0"/>
                 <TextBlock Text="winget upgrade" Style="{StaticResource Cmd}"/>
+                <Grid Margin="0,8,0,0">
+                  <Grid.ColumnDefinitions><ColumnDefinition Width="Auto"/><ColumnDefinition Width="*"/></Grid.ColumnDefinitions>
+                  <Ellipse x:Name="HistDotApps" Width="7" Height="7" Fill="{StaticResource Text3}" VerticalAlignment="Top" Margin="0,5,8,0"/>
+                  <TextBlock x:Name="HistApps" Grid.Column="1" Text="" FontSize="12" Foreground="{StaticResource Text2}" TextWrapping="Wrap"/>
+                </Grid>
                 <TextBlock x:Name="TxtAppsState" Text="" Style="{StaticResource State}"/>
               </StackPanel>
               <StackPanel Grid.Column="2" Orientation="Horizontal" VerticalAlignment="Top">
@@ -737,6 +762,11 @@ $script:XamlTemplate = @'
                 <TextBlock Text="[[health.repair]]" Style="{StaticResource Body}"/>
                 <TextBlock Text="[[health.repair.desc]]" Style="{StaticResource Caption}" Margin="0,3,0,0"/>
                 <TextBlock Text="DISM /Online /Cleanup-Image /RestoreHealth" Style="{StaticResource Cmd}"/>
+                <Grid Margin="0,8,0,0">
+                  <Grid.ColumnDefinitions><ColumnDefinition Width="Auto"/><ColumnDefinition Width="*"/></Grid.ColumnDefinitions>
+                  <Ellipse x:Name="HistDotRestoreHealth" Width="7" Height="7" Fill="{StaticResource Text3}" VerticalAlignment="Top" Margin="0,5,8,0"/>
+                  <TextBlock x:Name="HistRestoreHealth" Grid.Column="1" Text="" FontSize="12" Foreground="{StaticResource Text2}" TextWrapping="Wrap"/>
+                </Grid>
                 <TextBlock x:Name="TxtRepairState" Text="" Style="{StaticResource State}"/>
               </StackPanel>
               <StackPanel Grid.Column="2" Orientation="Horizontal" VerticalAlignment="Top">
@@ -752,6 +782,11 @@ $script:XamlTemplate = @'
                 <TextBlock Text="[[health.sfc]]" Style="{StaticResource Body}"/>
                 <TextBlock Text="[[health.sfc.desc]]" Style="{StaticResource Caption}" Margin="0,3,0,0"/>
                 <TextBlock Text="sfc /scannow" Style="{StaticResource Cmd}"/>
+                <Grid Margin="0,8,0,0">
+                  <Grid.ColumnDefinitions><ColumnDefinition Width="Auto"/><ColumnDefinition Width="*"/></Grid.ColumnDefinitions>
+                  <Ellipse x:Name="HistDotSfcScan" Width="7" Height="7" Fill="{StaticResource Text3}" VerticalAlignment="Top" Margin="0,5,8,0"/>
+                  <TextBlock x:Name="HistSfcScan" Grid.Column="1" Text="" FontSize="12" Foreground="{StaticResource Text2}" TextWrapping="Wrap"/>
+                </Grid>
                 <TextBlock x:Name="TxtSfcState" Text="" Style="{StaticResource State}"/>
               </StackPanel>
               <StackPanel Grid.Column="2" Orientation="Horizontal" VerticalAlignment="Top">
@@ -772,6 +807,11 @@ $script:XamlTemplate = @'
                   <TextBox x:Name="TxtScanPath" Style="{StaticResource Input}" Text="C:\Windows\System32\"/>
                   <Button x:Name="BtnBrowse" Grid.Column="1" Style="{StaticResource Subtle}" Content="[[action.browse]]" Margin="8,0,0,0"/>
                 </Grid>
+                <Grid Margin="0,8,0,0">
+                  <Grid.ColumnDefinitions><ColumnDefinition Width="Auto"/><ColumnDefinition Width="*"/></Grid.ColumnDefinitions>
+                  <Ellipse x:Name="HistDotScanFile" Width="7" Height="7" Fill="{StaticResource Text3}" VerticalAlignment="Top" Margin="0,5,8,0"/>
+                  <TextBlock x:Name="HistScanFile" Grid.Column="1" Text="" FontSize="12" Foreground="{StaticResource Text2}" TextWrapping="Wrap"/>
+                </Grid>
                 <TextBlock x:Name="TxtScanFileState" Text="" Style="{StaticResource State}"/>
               </StackPanel>
               <StackPanel Grid.Column="2" Orientation="Horizontal" VerticalAlignment="Top">
@@ -787,6 +827,11 @@ $script:XamlTemplate = @'
                 <TextBlock Text="[[health.wmifix]]" Style="{StaticResource Body}"/>
                 <TextBlock Text="[[health.wmifix.desc]]" Style="{StaticResource Caption}" Margin="0,3,0,0"/>
                 <TextBlock Text="winmgmt /salvagerepository" Style="{StaticResource Cmd}"/>
+                <Grid Margin="0,8,0,0">
+                  <Grid.ColumnDefinitions><ColumnDefinition Width="Auto"/><ColumnDefinition Width="*"/></Grid.ColumnDefinitions>
+                  <Ellipse x:Name="HistDotWmiSalvage" Width="7" Height="7" Fill="{StaticResource Text3}" VerticalAlignment="Top" Margin="0,5,8,0"/>
+                  <TextBlock x:Name="HistWmiSalvage" Grid.Column="1" Text="" FontSize="12" Foreground="{StaticResource Text2}" TextWrapping="Wrap"/>
+                </Grid>
                 <TextBlock x:Name="TxtWmiFixState" Text="" Style="{StaticResource State}"/>
               </StackPanel>
               <StackPanel Grid.Column="2" Orientation="Horizontal" VerticalAlignment="Top">
@@ -804,6 +849,11 @@ $script:XamlTemplate = @'
                 <TextBlock Text="[[health.comp]]" Style="{StaticResource Body}"/>
                 <TextBlock Text="[[health.comp.desc]]" Style="{StaticResource Caption}" Margin="0,3,0,0"/>
                 <TextBlock Text="DISM /Online /Cleanup-Image /StartComponentCleanup" Style="{StaticResource Cmd}"/>
+                <Grid Margin="0,8,0,0">
+                  <Grid.ColumnDefinitions><ColumnDefinition Width="Auto"/><ColumnDefinition Width="*"/></Grid.ColumnDefinitions>
+                  <Ellipse x:Name="HistDotComponentCleanup" Width="7" Height="7" Fill="{StaticResource Text3}" VerticalAlignment="Top" Margin="0,5,8,0"/>
+                  <TextBlock x:Name="HistComponentCleanup" Grid.Column="1" Text="" FontSize="12" Foreground="{StaticResource Text2}" TextWrapping="Wrap"/>
+                </Grid>
                 <TextBlock x:Name="TxtCompState" Text="" Style="{StaticResource State}"/>
               </StackPanel>
               <StackPanel Grid.Column="2" Orientation="Horizontal" VerticalAlignment="Top">
@@ -868,6 +918,11 @@ $script:XamlTemplate = @'
               <StackPanel Grid.Column="1" Margin="0,0,16,0">
                 <TextBlock Text="[[disks.fs]]" Style="{StaticResource Body}"/>
                 <TextBlock Text="[[disks.fs.desc]]" Style="{StaticResource Caption}" Margin="0,3,0,0"/>
+                <Grid Margin="0,8,0,0">
+                  <Grid.ColumnDefinitions><ColumnDefinition Width="Auto"/><ColumnDefinition Width="*"/></Grid.ColumnDefinitions>
+                  <Ellipse x:Name="HistDotVolumeScan" Width="7" Height="7" Fill="{StaticResource Text3}" VerticalAlignment="Top" Margin="0,5,8,0"/>
+                  <TextBlock x:Name="HistVolumeScan" Grid.Column="1" Text="" FontSize="12" Foreground="{StaticResource Text2}" TextWrapping="Wrap"/>
+                </Grid>
                 <TextBlock x:Name="TxtFsState" Text="" Style="{StaticResource State}"/>
               </StackPanel>
               <StackPanel Grid.Column="2" Orientation="Horizontal" VerticalAlignment="Center">
@@ -883,6 +938,11 @@ $script:XamlTemplate = @'
               <StackPanel Grid.Column="1" Margin="0,0,16,0">
                 <TextBlock Text="[[disks.opt]]" Style="{StaticResource Body}"/>
                 <TextBlock Text="[[disks.opt.desc]]" Style="{StaticResource Caption}" Margin="0,3,0,0"/>
+                <Grid Margin="0,8,0,0">
+                  <Grid.ColumnDefinitions><ColumnDefinition Width="Auto"/><ColumnDefinition Width="*"/></Grid.ColumnDefinitions>
+                  <Ellipse x:Name="HistDotOptimize" Width="7" Height="7" Fill="{StaticResource Text3}" VerticalAlignment="Top" Margin="0,5,8,0"/>
+                  <TextBlock x:Name="HistOptimize" Grid.Column="1" Text="" FontSize="12" Foreground="{StaticResource Text2}" TextWrapping="Wrap"/>
+                </Grid>
                 <TextBlock x:Name="TxtOptState" Text="" Style="{StaticResource State}"/>
                 <CheckBox x:Name="ChkDefrag" Content="[[disks.opt.hdd]]" Margin="0,12,0,0" FontSize="13"/>
               </StackPanel>
@@ -903,6 +963,11 @@ $script:XamlTemplate = @'
                 <RadioButton x:Name="ChkModeR"   Style="{StaticResource Choice}" GroupName="chkmode" Content="[[disks.chk.r]]"/>
                 <RadioButton x:Name="ChkModeFrx" Style="{StaticResource Choice}" GroupName="chkmode" Content="[[disks.chk.frx]]"/>
                 <TextBlock x:Name="TxtChkCmd" Text="" Style="{StaticResource Cmd}" FontSize="12.5" Foreground="{StaticResource Text2}"/>
+                <Grid Margin="0,8,0,0">
+                  <Grid.ColumnDefinitions><ColumnDefinition Width="Auto"/><ColumnDefinition Width="*"/></Grid.ColumnDefinitions>
+                  <Ellipse x:Name="HistDotChkdsk" Width="7" Height="7" Fill="{StaticResource Text3}" VerticalAlignment="Top" Margin="0,5,8,0"/>
+                  <TextBlock x:Name="HistChkdsk" Grid.Column="1" Text="" FontSize="12" Foreground="{StaticResource Text2}" TextWrapping="Wrap"/>
+                </Grid>
                 <TextBlock x:Name="TxtChkState" Text="" Style="{StaticResource State}"/>
               </StackPanel>
               <StackPanel Grid.Column="2" Orientation="Horizontal" VerticalAlignment="Top">
@@ -939,6 +1004,11 @@ $script:XamlTemplate = @'
               <StackPanel Grid.Column="1" Margin="0,0,16,0">
                 <TextBlock Text="[[net.dns]]" Style="{StaticResource Body}"/>
                 <TextBlock Text="[[net.dns.desc]]" Style="{StaticResource Caption}" Margin="0,3,0,0"/>
+                <Grid Margin="0,8,0,0">
+                  <Grid.ColumnDefinitions><ColumnDefinition Width="Auto"/><ColumnDefinition Width="*"/></Grid.ColumnDefinitions>
+                  <Ellipse x:Name="HistDotDns" Width="7" Height="7" Fill="{StaticResource Text3}" VerticalAlignment="Top" Margin="0,5,8,0"/>
+                  <TextBlock x:Name="HistDns" Grid.Column="1" Text="" FontSize="12" Foreground="{StaticResource Text2}" TextWrapping="Wrap"/>
+                </Grid>
               </StackPanel>
               <Button x:Name="BtnDns" Grid.Column="2" Style="{StaticResource Secondary}" Content="[[action.clear]]" VerticalAlignment="Center"/>
             </Grid>
@@ -950,6 +1020,11 @@ $script:XamlTemplate = @'
               <StackPanel Grid.Column="1" Margin="0,0,16,0">
                 <TextBlock Text="[[net.adapter]]" Style="{StaticResource Body}"/>
                 <TextBlock Text="[[net.adapter.desc]]" Style="{StaticResource Caption}" Margin="0,3,0,0"/>
+                <Grid Margin="0,8,0,0">
+                  <Grid.ColumnDefinitions><ColumnDefinition Width="Auto"/><ColumnDefinition Width="*"/></Grid.ColumnDefinitions>
+                  <Ellipse x:Name="HistDotAdapter" Width="7" Height="7" Fill="{StaticResource Text3}" VerticalAlignment="Top" Margin="0,5,8,0"/>
+                  <TextBlock x:Name="HistAdapter" Grid.Column="1" Text="" FontSize="12" Foreground="{StaticResource Text2}" TextWrapping="Wrap"/>
+                </Grid>
               </StackPanel>
               <Button x:Name="BtnAdapter" Grid.Column="2" Style="{StaticResource Secondary}" Content="[[action.restart]]" VerticalAlignment="Center"/>
             </Grid>
@@ -964,6 +1039,11 @@ $script:XamlTemplate = @'
                 <TextBlock Text="[[net.winsock]]" Style="{StaticResource Body}"/>
                 <TextBlock Text="[[net.winsock.desc]]" Style="{StaticResource Caption}" Margin="0,3,0,0"/>
                 <TextBlock Text="netsh winsock reset" Style="{StaticResource Cmd}"/>
+                <Grid Margin="0,8,0,0">
+                  <Grid.ColumnDefinitions><ColumnDefinition Width="Auto"/><ColumnDefinition Width="*"/></Grid.ColumnDefinitions>
+                  <Ellipse x:Name="HistDotWinsock" Width="7" Height="7" Fill="{StaticResource Text3}" VerticalAlignment="Top" Margin="0,5,8,0"/>
+                  <TextBlock x:Name="HistWinsock" Grid.Column="1" Text="" FontSize="12" Foreground="{StaticResource Text2}" TextWrapping="Wrap"/>
+                </Grid>
                 <TextBlock x:Name="TxtWinsockState" Text="" Style="{StaticResource State}"/>
               </StackPanel>
               <StackPanel Grid.Column="2" Orientation="Horizontal" VerticalAlignment="Top">
@@ -979,6 +1059,11 @@ $script:XamlTemplate = @'
                 <TextBlock Text="[[net.ipreset]]" Style="{StaticResource Body}"/>
                 <TextBlock Text="[[net.ipreset.desc]]" Style="{StaticResource Caption}" Margin="0,3,0,0"/>
                 <TextBlock Text="netsh int ip reset" Style="{StaticResource Cmd}"/>
+                <Grid Margin="0,8,0,0">
+                  <Grid.ColumnDefinitions><ColumnDefinition Width="Auto"/><ColumnDefinition Width="*"/></Grid.ColumnDefinitions>
+                  <Ellipse x:Name="HistDotIpReset" Width="7" Height="7" Fill="{StaticResource Text3}" VerticalAlignment="Top" Margin="0,5,8,0"/>
+                  <TextBlock x:Name="HistIpReset" Grid.Column="1" Text="" FontSize="12" Foreground="{StaticResource Text2}" TextWrapping="Wrap"/>
+                </Grid>
                 <TextBlock x:Name="TxtIpState" Text="" Style="{StaticResource State}"/>
               </StackPanel>
               <StackPanel Grid.Column="2" Orientation="Horizontal" VerticalAlignment="Top">
@@ -1096,7 +1181,7 @@ $script:Shared = [hashtable]::Synchronized(@{
     Queue = [System.Collections.Queue]::Synchronized((New-Object System.Collections.Queue))
     Busy = $false; Done = $false; Result = $null
 })
-$script:Job = $null; $script:JobHandle = $null; $script:OnDone = $null
+$script:Job = $null; $script:JobHandle = $null; $script:OnDone = $null; $script:OnDoneHistory = ''; $script:Stopped = $false; $script:History = $null
 $script:DriveButtons = @(); $script:SelectedDrive = $null; $script:RestartRecovery = $false
 
 $script:ActionButtons = @('BtnQuick','BtnDeep','BtnClean','BtnRemeasure','BtnCheck','BtnScan','BtnRepair','BtnSfc',
@@ -1131,10 +1216,11 @@ function Add-Log([string]$Text, [string]$Kind = 'info') {
 }
 
 function Invoke-Background {
-    param([Parameter(Mandatory)][scriptblock]$Work, [string]$Title, [scriptblock]$Done, [hashtable]$Params = @{})
+    param([Parameter(Mandatory)][scriptblock]$Work, [string]$Title, [scriptblock]$Done, [hashtable]$Params = @{}, [string]$History = '')
     if ($script:Shared.Busy) { return }
     $script:Shared.Busy = $true; $script:Shared.Done = $false; $script:Shared.Result = $null
     $script:OnDone = $Done
+    $script:OnDoneHistory = $History
     Set-Busy $true $Title
     if ($Title) { Add-Log $Title 'step' }
 
@@ -1173,6 +1259,8 @@ function Invoke-Pump {
         try { $script:Job.Runspace.Close(); $script:Job.Dispose() } catch { }
         $script:Job = $null
         Set-Busy $false (T 'status.ready')
+        if ($script:OnDoneHistory -and -not $script:Stopped) { Save-Run $script:OnDoneHistory (Get-ResultOk $script:Shared.Result) }
+        $script:OnDoneHistory = ''; $script:Stopped = $false
         $cb = $script:OnDone; $script:OnDone = $null
         if ($cb) { try { & $cb $script:Shared.Result } catch { Add-Log $_.Exception.Message 'error' } }
     }
@@ -1342,6 +1430,7 @@ function Update-FromRefresh($Data) {
         $script:Ui.HeroIcon.Foreground = Get-Brush 'Warn'; $script:Ui.HeroBadge.Background = Get-Brush 'WarnSoft'
     }
     $script:Ui.HeroSub.Text = T 'overview.lastcheck' ((Get-Date).ToString('t', (Get-AppCulture)))
+    Update-HistoryView
 }
 
 function Update-DrivePills($Volumes) {
@@ -1385,6 +1474,140 @@ function Request-Restart([string]$Title, [string]$Text, [switch]$Recovery) {
     $script:RestartRecovery = [bool]$Recovery
 }
 
+# =============================================================================
+#  Run history and advice ("when did it last run, is it needed now?")
+# =============================================================================
+$script:HistoryKeys = @('CheckHealth','ScanHealth','SfcVerify','WmiVerify','Apps','RestoreHealth','SfcScan','ScanFile',
+                        'WmiSalvage','ComponentCleanup','VolumeScan','Optimize','Chkdsk','Dns','Adapter','Winsock','IpReset')
+
+function Get-ResultOk($Result) {
+    $items = @($Result | Where-Object { $null -ne $_ })
+    if (-not $items.Count) { return $null }
+    if ($items.Count -gt 1 -and -not @($items | Where-Object { -not $_.PSObject.Properties['Ok'] }).Count) {
+        return -not @($items | Where-Object { -not $_.Ok }).Count          # e.g. optimize: every drive OK
+    }
+    $x = $items[-1]
+    if ($x -is [bool]) { return $x }
+    if ($x.PSObject.Properties['Scheduled'] -and $x.Scheduled) { return $true }
+    foreach ($p in 'Ok', 'Healthy', 'Consistent', 'Clean') {
+        if ($x.PSObject.Properties[$p]) { if ($null -eq $x.$p) { return $null }; return [bool]$x.$p }
+    }
+    if ($x.PSObject.Properties['Supported']) { if (-not $x.Supported -or $x.TimedOut) { return $null }; return ($x.Count -eq 0) }
+    if ($x.PSObject.Properties['Status']) { return ($x.Status -eq 'OK') }
+    if ($x.PSObject.Properties['Code']) { return ($x.Code -le 1) }
+    $null
+}
+
+function Save-Run([string]$Key, $Ok) {
+    Write-RunRecord -Key $Key -Ok $Ok
+    $script:History = Read-RunHistory
+    Update-HistoryView
+}
+
+function Format-Ago($Time) {
+    if (-not $Time) { return (T 'hist.never') }
+    $days = [int]((Get-Date).Date - $Time.Date).TotalDays
+    if ($days -le 0) { return (T 'hist.today' $Time.ToString('t', (Get-AppCulture))) }
+    if ($days -eq 1) { return (T 'hist.yesterday') }
+    T 'hist.daysAgo' $days
+}
+
+function Test-NewerFailure([string]$CheckKey, [string]$FixKey) {
+    # True when CheckKey's latest run found a problem that FixKey has not run after.
+    $c = $script:History[$CheckKey]
+    if (-not $c -or $c.Ok -ne $false) { return $false }
+    $f = $script:History[$FixKey]
+    return (-not $f -or $f.Time -lt $c.Time)
+}
+
+function Get-Advice([string]$Key) {
+    $h = $script:History[$Key]
+    $age = if ($h) { ((Get-Date) - $h.Time).TotalDays } else { [double]::MaxValue }
+    $due = {
+        param([int]$Days)
+        if (-not $h) { return @('due', (T 'rec.never')) }
+        if ($age -gt $Days) { return @('due', (T 'rec.due' ([int]$age))) }
+        @('ok', (T 'rec.ok'))
+    }
+    $data = $script:LastData
+    $netBad = ($data -and $data.Network -and $data.Network.Status -ne 'OK')
+    $checks = 'CheckHealth', 'ScanHealth', 'SfcVerify', 'WmiVerify', 'VolumeScan'
+    if ($checks -contains $Key -and $h -and $h.Ok -eq $false) { return @('warn', (T 'rec.problem')) }
+
+    switch ($Key) {
+        'CheckHealth' { return & $due 7 }
+        'ScanHealth'  { return & $due 30 }
+        'SfcVerify'   { return & $due 30 }
+        'WmiVerify'   { return & $due 90 }
+        'VolumeScan'  { return & $due 30 }
+        'Apps'        { return & $due 7 }
+        'RestoreHealth' {
+            if ((Test-NewerFailure 'CheckHealth' 'RestoreHealth') -or (Test-NewerFailure 'ScanHealth' 'RestoreHealth')) { return @('due', (T 'rec.afterFailure')) }
+            return @('cond', (T 'rec.onlyOnProblem'))
+        }
+        'SfcScan' {
+            if (Test-NewerFailure 'SfcVerify' 'SfcScan') { return @('due', (T 'rec.afterFailure')) }
+            $rh = $script:History['RestoreHealth']
+            if ($rh -and $rh.Ok -and (-not $h -or $h.Time -lt $rh.Time)) { return @('due', (T 'rec.afterRepair')) }
+            return @('cond', (T 'rec.onlyOnProblem'))
+        }
+        'WmiSalvage' {
+            if (Test-NewerFailure 'WmiVerify' 'WmiSalvage') { return @('due', (T 'rec.afterFailure')) }
+            return @('cond', (T 'rec.onlyOnProblem'))
+        }
+        'Chkdsk' {
+            if (Test-NewerFailure 'VolumeScan' 'Chkdsk') { return @('due', (T 'rec.afterFailure')) }
+            return @('cond', (T 'rec.onlyOnProblem'))
+        }
+        'ScanFile' { return @('cond', (T 'rec.onDemand')) }
+        'ComponentCleanup' {
+            $lastClean = $null
+            if ($h) { $lastClean = $h.Time }
+            if ($data -and $data.WinCompTask -and (-not $lastClean -or $data.WinCompTask -gt $lastClean)) { $lastClean = $data.WinCompTask }
+            $upd = if ($data) { $data.LastUpdate } else { $null }
+            if ($upd -and (-not $lastClean -or $upd.Date -gt $lastClean.Date)) {
+                return @('due', (T 'rec.update' $upd.ToString('d', (Get-AppCulture))))
+            }
+            if ($data -and $data.WinCompTask -and (-not $h -or $data.WinCompTask -gt $h.Time)) {
+                return @('ok', (T 'rec.windowsDid' (Format-Ago $data.WinCompTask)))
+            }
+            return @('ok', (T 'rec.ok'))
+        }
+        'Optimize' {
+            if ($data -and $data.Optimize.Known -and $data.Optimize.DaysAgo -le 7) { return @('ok', (T 'rec.windowsDid' (Format-Ago $data.Optimize.LastRun))) }
+            return & $due 7
+        }
+        { $_ -in 'Dns', 'Adapter', 'Winsock', 'IpReset' } {
+            if ($netBad) { return @('due', (T 'rec.netNow')) }
+            return @('cond', (T 'rec.netOnly'))
+        }
+    }
+    @('cond', '')
+}
+
+function Update-HistoryView {
+    if (-not $script:Ui) { return }
+    if ($null -eq $script:History) { $script:History = Read-RunHistory }
+    $dueCount = 0
+    foreach ($k in $script:HistoryKeys) {
+        $txt = $script:Ui["Hist$k"]; $dot = $script:Ui["HistDot$k"]
+        if (-not $txt) { continue }
+        $adv = Get-Advice $k
+        $h = $script:History[$k]
+        $when = Format-Ago $(if ($h) { $h.Time } else { $null })
+        $last = if ($h -and $h.Ok -eq $true) { T 'hist.lastOk' $when }
+                elseif ($h -and $h.Ok -eq $false) { T 'hist.lastProblem' $when }
+                else { T 'hist.last' $when }
+        $txt.Text = if ($adv[1]) { "$($adv[1])   |   $last" } else { $last }
+        $dot.Fill = Get-Brush $(switch ($adv[0]) { 'due' { 'Accent' } 'warn' { 'Warn' } 'ok' { 'Good' } default { 'Text3' } })
+        if ($adv[0] -in 'due', 'warn') { $dueCount++ }
+    }
+    if ($script:LastData -and $script:Ui.HeroSub) {
+        $base = T 'overview.lastcheck' ((Get-Date).ToString('t', (Get-AppCulture)))
+        $script:Ui.HeroSub.Text = if ($dueCount) { "$base   |   $(T 'overview.recommended' $dueCount)" } else { "$base   |   $(T 'overview.uptodate')" }
+    }
+}
+
 function Update-Network($net) {
     $script:Ui.TxtNetMain.Text = T "net.state.$($net.Status)"
     $parts = @(); if ($net.Description) { $parts += $net.Description }; if ($net.IP) { $parts += $net.IP }; if ($net.Speed) { $parts += $net.Speed }
@@ -1410,6 +1633,8 @@ $script:RefreshWork = {
         Cleanup  = $cleanup
         Delivery = Get-DeliveryCacheSize
         Recycle  = Get-RecycleBinSize
+        LastUpdate  = Get-LastUpdateDate
+        WinCompTask = Get-ComponentCleanupTask
     }
 }
 
@@ -1605,6 +1830,9 @@ function Register-Screenshots {
         if ($script:ShotIndex -ge 0) {
             $name = '{0}-{1}-{2}.png' -f $script:Settings.Language, $script:Settings.Theme, $script:ShotPages[$script:ShotIndex].Substring(3).ToLowerInvariant()
             Save-WindowImage (Join-Path $ScreenshotDir $name)
+            # Text dump of the run-history lines, for automated checks
+            $lines = foreach ($k in $script:HistoryKeys) { if ($script:Ui["Hist$k"]) { "{0,-17} {1}" -f $k, $script:Ui["Hist$k"].Text } }
+            [IO.File]::WriteAllLines((Join-Path $ScreenshotDir ($name -replace '\.png$', '-history.txt')), [string[]]$lines, (New-Object Text.UTF8Encoding($true)))
         }
         $script:ShotIndex++
         if ($script:ShotIndex -ge $script:ShotPages.Count) { $script:ShotTimer.Stop(); $script:Rebuild = $false; $script:Win.Close(); return }
@@ -1640,7 +1868,7 @@ function Register-Handlers {
     $u = $script:Ui
 
     $u.BtnStop.Add_Click({
-        if ($script:Job) { try { $script:Job.Stop() } catch { }; Add-Log (T 'status.stopped') 'warn'; $script:Shared.Done = $true }
+        if ($script:Job) { try { $script:Job.Stop() } catch { }; $script:Stopped = $true; Add-Log (T 'status.stopped') 'warn'; $script:Shared.Done = $true }
     })
 
     $u.BtnQuick.Add_Click({
@@ -1649,6 +1877,8 @@ function Register-Handlers {
         Invoke-Background -Title (T 'quick.running') -Work $script:CleanWork -Params $keys -Done {
             param($r)
             if (-not $r) { return }
+            Save-Run 'Cleanup' $true; Save-Run 'Dns' $true; Save-Run 'QuickCare' $true
+            if ($r.Check) { Save-Run 'CheckHealth' $r.Check.Healthy }
             Add-Log (T 'quick.done' (Format-Size $r.Bytes) $r.Count) 'ok'
             $chk = if ($r.Check.Healthy -eq $false) { T 'quick.done.checkbad' } else { T 'quick.done.checkok' }
             Show-Dialog -Title (T 'quick.done.title') -Text ((T 'quick.done' (Format-Size $r.Bytes) $r.Count) + "`n`n" + $chk)
@@ -1669,6 +1899,13 @@ function Register-Handlers {
                     (T 'deep.result.disk'  $(if ($r.Volume.Clean -ne $false) { T 'result.ok' } else { T 'result.problem' }))
                     (T 'deep.result.net'   (T "net.state.$($r.Network.Status)"))
                 )
+                Save-Run 'Cleanup' $true; Save-Run 'Dns' $true; Save-Run 'DeepCare' $true
+                if ($r.Check)  { Save-Run 'CheckHealth' $r.Check.Healthy }
+                if ($r.Repair) { Save-Run 'RestoreHealth' $r.Repair.Ok }
+                if ($r.Sfc)    { Save-Run 'SfcScan' $r.Sfc.Ok }
+                if ($r.Comp)   { Save-Run 'ComponentCleanup' $r.Comp.Ok }
+                if ($r.Volume) { Save-Run 'VolumeScan' $r.Volume.Clean }
+                Save-Run 'Optimize' $true
                 Add-Log (T 'deep.done') 'ok'
                 Show-Dialog -Title (T 'deep.done') -Text ($lines -join "`n")
                 Start-Refresh
@@ -1683,7 +1920,7 @@ function Register-Handlers {
         if ($keys.Count -eq 0) { return }
         $run = {
             $k = @{}; foreach ($i in $script:CleanItems) { if ($i.Selected) { $k[$i.Key] = $true } }
-            Invoke-Background -Title (T 'cleanup.running') -Work $script:CleanWork -Params $k -Done {
+            Invoke-Background -History 'Cleanup' -Title (T 'cleanup.running') -Work $script:CleanWork -Params $k -Done {
                 param($r)
                 if (-not $r) { return }
                 Show-Dialog -Title (T 'cleanup.done.title') -Text (T 'cleanup.done.text' (Format-Size $r.Bytes) $r.Count)
@@ -1697,33 +1934,33 @@ function Register-Handlers {
     })
 
     $u.BtnCheck.Add_Click({
-        Invoke-Background -Title (T 'msg.check.running') -Work { param($n,$p) Test-ComponentStore -Notify $n } -Done {
+        Invoke-Background -History 'CheckHealth' -Title (T 'msg.check.running') -Work { param($n,$p) Test-ComponentStore -Notify $n } -Done {
             param($r) if (-not $r) { return }
             $script:Ui.TxtCheckState.Text = if ($r.Healthy) { T 'health.check.ok' } else { T 'health.check.bad' $r.Code }
         }
     })
     $u.BtnScan.Add_Click({
-        Invoke-Background -Title (T 'msg.scan.running') -Work { param($n,$p) Invoke-ScanHealth -Notify $n } -Done {
+        Invoke-Background -History 'ScanHealth' -Title (T 'msg.scan.running') -Work { param($n,$p) Invoke-ScanHealth -Notify $n } -Done {
             param($r) if (-not $r) { return }
             $script:Ui.TxtScanState.Text = if ($r.Healthy) { T 'health.scan.ok' } else { T 'health.scan.bad' }
         }
     })
     $u.BtnRepair.Add_Click({
         Confirm-Action (T 'repair.confirm.title') (T 'repair.confirm.text') (T 'action.repair') {
-            Invoke-Background -Title (T 'msg.repair.running') -Work { param($n,$p) Repair-ComponentStore -Notify $n } -Done {
+            Invoke-Background -History 'RestoreHealth' -Title (T 'msg.repair.running') -Work { param($n,$p) Repair-ComponentStore -Notify $n } -Done {
                 param($r) if (-not $r) { return }
                 $script:Ui.TxtRepairState.Text = if ($r.Ok) { T 'health.repair.ok' } else { T 'health.repair.bad' $r.Code }
             }
         }
     })
     $u.BtnSfc.Add_Click({
-        Invoke-Background -Title (T 'msg.sfc.running') -Work { param($n,$p) Invoke-Sfc -Mode scannow -Notify $n } -Done {
+        Invoke-Background -History 'SfcScan' -Title (T 'msg.sfc.running') -Work { param($n,$p) Invoke-Sfc -Mode scannow -Notify $n } -Done {
             param($r) if (-not $r) { return }
             $script:Ui.TxtSfcState.Text = if ($r.Ok) { T 'health.sfc.ok' } else { T 'health.sfc.bad' $r.Code }
         }
     })
     $u.BtnApps.Add_Click({
-        Invoke-Background -Title (T 'msg.apps.running') -Work { param($n,$p) Get-OutdatedApps } -Done {
+        Invoke-Background -History 'Apps' -Title (T 'msg.apps.running') -Work { param($n,$p) Get-OutdatedApps } -Done {
             param($r) if (-not $r) { return }
             $script:Ui.TxtAppsState.Text =
                 if (-not $r.Supported) { T 'health.apps.nowinget' }
@@ -1740,7 +1977,7 @@ function Register-Handlers {
     })
     $u.BtnComp.Add_Click({
         Confirm-Action (T 'comp.confirm.title') (T 'comp.confirm.text') (T 'action.clean') {
-            Invoke-Background -Title (T 'msg.comp.running') -Work { param($n,$p) Invoke-ComponentCleanup -Notify $n } -Done {
+            Invoke-Background -History 'ComponentCleanup' -Title (T 'msg.comp.running') -Work { param($n,$p) Invoke-ComponentCleanup -Notify $n } -Done {
                 param($r) if (-not $r) { return }
                 $script:Ui.TxtCompState.Text = if ($r.Ok) { T 'msg.comp.ok' (Format-Size $r.Bytes) } else { T 'msg.comp.bad' $r.Code }
             }
@@ -1748,7 +1985,7 @@ function Register-Handlers {
     })
 
     $u.BtnFsScan.Add_Click({
-        Invoke-Background -Title (T 'msg.vol.running' $env:SystemDrive.TrimEnd(':')) -Work { param($n,$p) Test-VolumeHealth -Notify $n } -Done {
+        Invoke-Background -History 'VolumeScan' -Title (T 'msg.vol.running' $env:SystemDrive.TrimEnd(':')) -Work { param($n,$p) Test-VolumeHealth -Notify $n } -Done {
             param($r) if (-not $r) { return }
             if ($r.Clean -eq $true) { $script:Ui.TxtFsState.Text = T 'disks.fs.ok'; $script:Ui.BtnFsFix.Visibility = 'Collapsed' }
             elseif ($r.Clean -eq $false) { $script:Ui.TxtFsState.Text = T 'disks.fs.bad'; $script:Ui.BtnFsFix.Visibility = 'Visible' }
@@ -1764,7 +2001,7 @@ function Register-Handlers {
     })
     $u.BtnOptimize.Add_Click({
         $p = @{ Defrag = [bool]$script:Ui.ChkDefrag.IsChecked }
-        Invoke-Background -Title (T 'msg.opt.running') -Params $p -Work {
+        Invoke-Background -History 'Optimize' -Title (T 'msg.opt.running') -Params $p -Work {
             param($n, $p)
             $res = @(); foreach ($v in Get-VolumeInfo) { $res += Invoke-Optimize -Letter $v.Letter -Defrag:$p.Defrag -Notify $n }; $res
         } -Done {
@@ -1779,30 +2016,30 @@ function Register-Handlers {
     $u.BtnNetCheck.Add_Click({
         Invoke-Background -Title (T 'net.checking') -Work { param($n,$p) Test-Network } -Done { param($r) if ($r) { Update-Network $r; Add-Log (T "net.state.$($r.Status)") $(if ($r.Status -eq 'OK') { 'ok' } else { 'warn' }) } }
     })
-    $u.BtnDns.Add_Click({ Invoke-Background -Title (T 'net.dns') -Work { param($n,$p) Clear-DnsCache -Notify $n } })
+    $u.BtnDns.Add_Click({ Invoke-Background -History 'Dns' -Title (T 'net.dns') -Work { param($n,$p) Clear-DnsCache -Notify $n } })
     $u.BtnAdapter.Add_Click({
         Confirm-Action (T 'adapter.confirm.title') (T 'adapter.confirm.text') (T 'action.restart') {
-            Invoke-Background -Title (T 'net.adapter') -Work { param($n,$p) Restart-NetworkAdapter -Notify $n; Test-Network } -Done {
+            Invoke-Background -History 'Adapter' -Title (T 'net.adapter') -Work { param($n,$p) Restart-NetworkAdapter -Notify $n; Test-Network } -Done {
                 param($r) $last = @($r)[-1]; if ($last -and $last.PSObject.Properties['Status']) { Update-Network $last }
             }
         }
     })
 
     $u.BtnVerify.Add_Click({
-        Invoke-Background -Title (T 'msg.verify.running') -Work { param($n,$p) Invoke-Sfc -Mode verifyonly -Notify $n } -Done {
+        Invoke-Background -History 'SfcVerify' -Title (T 'msg.verify.running') -Work { param($n,$p) Invoke-Sfc -Mode verifyonly -Notify $n } -Done {
             param($r) if (-not $r) { return }
             $script:Ui.TxtVerifyState.Text = if ($r.Ok) { T 'health.verify.ok' } else { T 'health.verify.bad' $r.Code }
         }
     })
     $u.BtnWmi.Add_Click({
-        Invoke-Background -Title (T 'msg.wmi.running') -Work { param($n,$p) Test-WmiRepository -Notify $n } -Done {
+        Invoke-Background -History 'WmiVerify' -Title (T 'msg.wmi.running') -Work { param($n,$p) Test-WmiRepository -Notify $n } -Done {
             param($r) if (-not $r) { return }
             $script:Ui.TxtWmiState.Text = if ($r.Consistent) { T 'health.wmi.ok' } else { T 'health.wmi.bad' $r.Code }
         }
     })
     $u.BtnWmiFix.Add_Click({
         Confirm-Action (T 'wmifix.confirm.title') (T 'wmifix.confirm.text') (T 'action.repair') {
-            Invoke-Background -Title (T 'msg.wmifix.running') -Work { param($n,$p) Repair-WmiRepository -Notify $n } -Done {
+            Invoke-Background -History 'WmiSalvage' -Title (T 'msg.wmifix.running') -Work { param($n,$p) Repair-WmiRepository -Notify $n } -Done {
                 param($r) if (-not $r) { return }
                 $script:Ui.TxtWmiFixState.Text = if ($r.Ok) { T 'msg.wmifix.ok' } else { T 'msg.wmifix.bad' $r.Code }
             }
@@ -1817,7 +2054,7 @@ function Register-Handlers {
     $u.BtnScanFile.Add_Click({
         $path = $script:Ui.TxtScanPath.Text.Trim().Trim('"')
         if (-not $path -or -not (Test-Path -LiteralPath $path -PathType Leaf)) { $script:Ui.TxtScanFileState.Text = T 'msg.scanfile.missing' $path; return }
-        Invoke-Background -Title (T 'msg.scanfile.running') -Params @{ Path = $path } -Work { param($n,$p) Invoke-SfcScanFile -Path $p.Path -Notify $n } -Done {
+        Invoke-Background -History 'ScanFile' -Title (T 'msg.scanfile.running') -Params @{ Path = $path } -Work { param($n,$p) Invoke-SfcScanFile -Path $p.Path -Notify $n } -Done {
             param($r) if (-not $r) { return }
             $script:Ui.TxtScanFileState.Text = if ($r.Ok) { T 'msg.scanfile.ok' $r.Path } else { T 'msg.scanfile.bad' $r.Path $r.Code }
         }
@@ -1832,7 +2069,7 @@ function Register-Handlers {
         Confirm-Action (T 'chkdsk.confirm.title') $text (T 'action.run') {
             $p = @{ Letter = $script:SelectedDrive; Mode = (Get-ChkMode) }
             if (-not $p.Letter) { $p.Letter = $env:SystemDrive.TrimEnd(':') }
-            Invoke-Background -Title $script:Ui.TxtChkCmd.Text -Params $p -Work { param($n,$p) Invoke-Chkdsk -Letter $p.Letter -Mode $p.Mode -Notify $n } -Done {
+            Invoke-Background -History 'Chkdsk' -Title $script:Ui.TxtChkCmd.Text -Params $p -Work { param($n,$p) Invoke-Chkdsk -Letter $p.Letter -Mode $p.Mode -Notify $n } -Done {
                 param($r) if (-not $r) { return }
                 if ($r.Scheduled) {
                     $script:Ui.TxtChkState.Text = T 'msg.chkdsk.scheduled' $r.Letter
@@ -1845,7 +2082,7 @@ function Register-Handlers {
     })
     $u.BtnWinsock.Add_Click({
         Confirm-Action (T 'netreset.confirm.title') (T 'netreset.confirm.text' 'netsh winsock reset') (T 'action.reset') {
-            Invoke-Background -Title 'netsh winsock reset' -Params @{ Part = 'winsock' } -Work { param($n,$p) Reset-NetworkStack -Part $p.Part -Notify $n } -Done {
+            Invoke-Background -History 'Winsock' -Title 'netsh winsock reset' -Params @{ Part = 'winsock' } -Work { param($n,$p) Reset-NetworkStack -Part $p.Part -Notify $n } -Done {
                 param($r) if (-not $r) { return }
                 $script:Ui.TxtWinsockState.Text = if ($r.Ok) { T 'msg.netreset.ok' } else { T 'msg.netreset.bad' $r.Code }
                 if ($r.Ok) { Request-Restart (T 'netreset.restart.title') (T 'netreset.restart.text') }
@@ -1854,7 +2091,7 @@ function Register-Handlers {
     })
     $u.BtnIpReset.Add_Click({
         Confirm-Action (T 'netreset.confirm.title') (T 'netreset.confirm.text' 'netsh int ip reset') (T 'action.reset') {
-            Invoke-Background -Title 'netsh int ip reset' -Params @{ Part = 'ip' } -Work { param($n,$p) Reset-NetworkStack -Part $p.Part -Notify $n } -Done {
+            Invoke-Background -History 'IpReset' -Title 'netsh int ip reset' -Params @{ Part = 'ip' } -Work { param($n,$p) Reset-NetworkStack -Part $p.Part -Notify $n } -Done {
                 param($r) if (-not $r) { return }
                 $script:Ui.TxtIpState.Text = if ($r.Ok) { T 'msg.netreset.ok' } else { T 'msg.netreset.bad' $r.Code }
                 if ($r.Ok) { Request-Restart (T 'netreset.restart.title') (T 'netreset.restart.text') }

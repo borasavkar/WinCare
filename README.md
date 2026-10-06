@@ -2,9 +2,48 @@
 
 <img src="assets/icon-256.png" width="96" align="right" alt="WinCare icon">
 
-A clean, minimal maintenance tool for **Windows 11**. It checks your PC's health and keeps it tidy using only tools built into Windows — no installers, no services, no telemetry.
+A clean, minimal maintenance tool for **Windows 11**. It checks your PC's health first and repairs only what needs repairing.
 
 ![WinCare overview](docs/screenshots/en-dark-overview.png)
+
+## Why WinCare
+
+**Only Windows' own tools.** Every check, cleanup and repair is done by tools that already ship with Windows: `DISM`, `SFC`, `chkdsk`, `winmgmt`, `netsh`, `ipconfig`, Windows Storage cmdlets and Windows' own Delivery Optimization cleanup. WinCare installs nothing, runs no background service, uses **no third-party cleaners or drivers**, sends no data anywhere and never writes to the registry. Your Windows settings are left alone; the only exceptions are the two network resets, which run only when you choose them and say so before they start.
+
+**The common repair commands, one click away.** The commands people usually look up and type into an elevated command prompt — `sfc /scannow`, `DISM /RestoreHealth`, `chkdsk /f`, `netsh winsock reset` and the rest — are each a button. The exact command is shown next to the button, and its real output appears on the **Activity** page, just as it would in a console.
+
+**It tells you when a command last ran and whether you need it.** WinCare remembers when each command was last run and how it ended, and gives a short recommendation for every one of them:
+
+- *Recommended - never run* / *Recommended - last run 40 days ago* for periodic checks
+- *Not needed now* when a check ran recently and found nothing
+- *Recommended - a check found a problem* for a repair, only after a check reported damage
+- *Recommended - Windows was updated on ...* for removing old update files, and *Not needed - Windows did this itself* when Windows' own cleanup task already ran after the last update
+- *Only needed if you have connection problems* for the network resets
+
+So you run what is useful, not everything every time.
+
+## Commands and when WinCare recommends them
+
+| Command | What it does | Recommended when |
+|---|---|---|
+| `DISM /Online /Cleanup-Image /CheckHealth` | Reads Windows' corruption flag (instant, read-only) | Not run in the last 7 days |
+| `DISM /Online /Cleanup-Image /ScanHealth` | Scans the component store for damage (read-only) | Not run in the last 30 days |
+| `sfc /verifyonly` | Verifies protected system files without changing them | Not run in the last 30 days |
+| `winmgmt /verifyrepository` | Checks the WMI repository | Not run in the last 90 days |
+| `winget upgrade` | Lists apps with newer versions | Not run in the last 7 days |
+| `DISM /Online /Cleanup-Image /RestoreHealth` | Repairs the Windows image | A check found damage |
+| `sfc /scannow` | Repairs protected system files | Verification failed, or right after an image repair |
+| `sfc /scanfile=<file>` | Repairs a single system file | A specific file is reported damaged |
+| `winmgmt /salvagerepository` | Rebuilds an inconsistent WMI repository | The WMI check failed |
+| `DISM /Online /Cleanup-Image /StartComponentCleanup` | Removes update files replaced by newer updates | Windows was updated after the last cleanup |
+| Read-only file system scan (`Repair-Volume -Scan`) | Checks the system drive without a restart | Not run in the last 30 days |
+| `chkdsk X: /f` · `/r` · `/f /r /x` | Repairs the file system / finds bad sectors | The file system scan found a problem |
+| Drive optimization (TRIM / defrag) | TRIM for SSDs, defrag for hard disks only | Windows has not optimized the drives for 7 days |
+| `ipconfig /flushdns`, adapter restart | Fixes stale DNS entries and adapters without an IP | The connection has a problem |
+| `netsh winsock reset`, `netsh int ip reset` | Resets the network stack (needs a restart) | The connection has a problem |
+| `bootrec` / `bcdboot` | Startup repair | Windows does not start (shown for the recovery environment) |
+
+Run history is stored locally in `%APPDATA%\WinCare\history.json`.
 
 ## Features
 
