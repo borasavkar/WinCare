@@ -5,7 +5,10 @@
       2. runs the automated checks (stops on failure)
       3. builds WinCare.exe and dist\WinCare-<version>.zip
       4. commits, tags v<version>, pushes
-      5. creates the GitHub release with the ZIP and generated notes
+      5. creates the GitHub release; GitHub Actions (.github/workflows/build.yml)
+         builds the package from the tag, attests its provenance and attaches it
+      6. waits for that build, then downloads the package and verifies its
+         version and provenance
 
     Usage:
       powershell -NoProfile -STA -File build\Release.ps1 -Version 1.1.0
@@ -96,7 +99,7 @@ $zip = Join-Path $root "dist\WinCare-$Version.zip"
 if (-not (Test-Path -LiteralPath $zip)) { Die "Package not found: $zip" }
 $exeVer = (Get-Item (Join-Path $root 'WinCare.exe')).VersionInfo.ProductVersion
 if ($exeVer -ne $Version) { Die "WinCare.exe reports version $exeVer, expected $Version." }
-$hash = (Get-FileHash -LiteralPath $zip -Algorithm SHA256).Hash
+# The local build is only a pre-check; the published package is built by GitHub Actions
 
 # --- 5. Commit, tag, push ----------------------------------------------------
 Step "Committing and tagging $tag"
@@ -108,29 +111,60 @@ if ($LASTEXITCODE -ne 0) { Die 'Push of the release commit failed.' }
 git push -q origin $tag 2>$null
 if ($LASTEXITCODE -ne 0) { Die 'Push of the tag failed.' }
 
-# --- 6. GitHub release -------------------------------------------------------
+# --- 6. GitHub release; the package is built by GitHub Actions -------------
 Step 'Creating GitHub release'
-$notes = @"
+function Get-Notes([string]$HashLine) {
+@"
 $changes
 
 ### Install
 Download **WinCare-$Version.zip**, extract it anywhere and run **WinCare.exe** (administrator rights are required).
 If SmartScreen shows *"Windows protected your PC"*, choose **More info > Run anyway** - the launcher is not code-signed yet.
 
-**SHA-256** ``WinCare-$Version.zip``: ``$hash``
+### Verify
+This package was built from tag ``$tag`` by GitHub Actions, not on a personal computer. Check it with the GitHub CLI:
+``````
+gh attestation verify WinCare-$Version.zip --repo $repo
+``````
+$HashLine
 "@
+}
 $notesPath = Join-Path $env:TEMP "wincare-notes-$Version.md"
-[IO.File]::WriteAllText($notesPath, $notes, (New-Object Text.UTF8Encoding($false)))
-gh release create $tag $zip --repo $repo --title "WinCare $Version" --notes-file $notesPath
+[IO.File]::WriteAllText($notesPath, (Get-Notes '_The SHA-256 checksum is added when the build finishes._'), (New-Object Text.UTF8Encoding($false)))
+$started = (Get-Date).ToUniversalTime().AddSeconds(-30)
+gh release create $tag --repo $repo --title "WinCare $Version" --notes-file $notesPath --verify-tag
 if ($LASTEXITCODE -ne 0) { Die 'gh release create failed.' }
 
-# Verify the uploaded asset
+Step 'Waiting for the GitHub Actions build'
+$runId = $null
+for ($i = 0; $i -lt 40 -and -not $runId; $i++) {
+    Start-Sleep -Seconds 5
+    $runs = gh run list --repo $repo --workflow build.yml --event release --limit 10 --json databaseId,headBranch,createdAt 2>$null | ConvertFrom-Json
+    $run = @($runs | Where-Object { $_.headBranch -eq $tag -and ([datetime]$_.createdAt).ToUniversalTime() -ge $started }) | Select-Object -First 1
+    if ($run) { $runId = $run.databaseId }
+}
+if (-not $runId) { Die "No GitHub Actions build started for $tag (see https://github.com/$repo/actions)." }
+"Build: https://github.com/$repo/actions/runs/$runId"
+gh run watch $runId --repo $repo --exit-status --interval 10 | Out-Null
+if ($LASTEXITCODE -ne 0) { Die "The GitHub Actions build failed: https://github.com/$repo/actions/runs/$runId" }
+
+Step 'Verifying the published package'
 $check = Join-Path $env:TEMP "wincare-verify-$Version"
 if (Test-Path $check) { Remove-Item -LiteralPath $check -Recurse -Force }
 gh release download $tag --repo $repo --dir $check 2>$null
-$remote = (Get-FileHash -LiteralPath (Join-Path $check "WinCare-$Version.zip") -Algorithm SHA256).Hash
-if ($remote -ne $hash) { Die "Uploaded asset hash differs: $remote vs $hash" }
+$remoteZip = Join-Path $check "WinCare-$Version.zip"
+if (-not (Test-Path -LiteralPath $remoteZip)) { Die 'The release has no package.' }
+$unzipped = Join-Path $check 'unzipped'
+Expand-Archive -LiteralPath $remoteZip -DestinationPath $unzipped
+$remoteVer = (Get-Item (Join-Path $unzipped 'WinCare.exe')).VersionInfo.ProductVersion
+if ($remoteVer -ne $Version) { Die "Published WinCare.exe reports $remoteVer, expected $Version." }
+gh attestation verify $remoteZip --repo $repo 2>&1 | Out-Null
+if ($LASTEXITCODE -ne 0) { Die 'Build provenance could not be verified.' }
+$hash = (Get-FileHash -LiteralPath $remoteZip -Algorithm SHA256).Hash
+[IO.File]::WriteAllText($notesPath, (Get-Notes "**SHA-256** ``WinCare-$Version.zip``: ``$hash``"), (New-Object Text.UTF8Encoding($false)))
+gh release edit $tag --repo $repo --notes-file $notesPath | Out-Null
 
 Step "Released WinCare $Version"
 "https://github.com/$repo/releases/tag/$tag"
-"SHA-256 verified: $hash"
+"Built by GitHub Actions, provenance verified, version $remoteVer"
+"SHA-256: $hash"

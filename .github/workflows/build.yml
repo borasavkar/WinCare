@@ -1,0 +1,68 @@
+# Builds WinCare from source on GitHub's Windows runners.
+#   push / pull request : automated checks + build (artifact only)
+#   release published   : same, then attests build provenance and attaches the
+#                         package to the release, so every published binary is
+#                         verifiably built from this repository.
+name: Build
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+  release:
+    types: [published]
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  build:
+    runs-on: windows-latest
+    permissions:
+      contents: write        # attach the package to the release
+      id-token: write        # build provenance
+      attestations: write
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Automated checks
+        shell: powershell
+        run: powershell -NoProfile -STA -ExecutionPolicy Bypass -File tests\Test-WinCare.ps1
+
+      - name: Build WinCare.exe and the release package
+        shell: powershell
+        run: powershell -NoProfile -ExecutionPolicy Bypass -File build\Build-Exe.ps1 -Package
+
+      - name: Check that the version matches the release
+        if: github.event_name == 'release'
+        shell: powershell
+        run: |
+          $tag = '${{ github.event.release.tag_name }}'.TrimStart('v')
+          $exe = (Get-Item WinCare.exe).VersionInfo.ProductVersion
+          if ($exe -ne $tag) { throw "WinCare.exe reports $exe but the release is $tag" }
+          if (-not (Test-Path "dist\WinCare-$tag.zip")) { throw "dist\WinCare-$tag.zip was not built" }
+
+      - name: Attest build provenance
+        if: github.event_name == 'release'
+        uses: actions/attest-build-provenance@v2
+        with:
+          subject-path: |
+            WinCare.exe
+            dist/WinCare-*.zip
+
+      - name: Keep the package as a workflow artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: WinCare
+          path: dist/WinCare-*.zip
+
+      - name: Attach the package to the release
+        if: github.event_name == 'release'
+        shell: powershell
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          $zip = (Get-ChildItem dist\WinCare-*.zip).FullName
+          gh release upload '${{ github.event.release.tag_name }}' $zip --clobber --repo '${{ github.repository }}'
+          if ($LASTEXITCODE -ne 0) { throw 'Upload to the release failed' }

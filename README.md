@@ -92,6 +92,12 @@ Run history is stored locally in `%APPDATA%\WinCare\history.json`.
 
 > **SmartScreen:** the executable is not code-signed yet, so Windows may show *"Windows protected your PC"*. Choose **More info > Run anyway**. `WinCare.exe` is a tiny launcher; its full source is in [`launcher/`](launcher/) and all maintenance logic is plain PowerShell in [`src/`](src/).
 
+**Verify your download:** every release package is built from the tagged source code by [GitHub Actions](.github/workflows/build.yml), not on a personal computer, and carries a signed build provenance attestation. With the [GitHub CLI](https://cli.github.com/):
+
+```
+gh attestation verify WinCare-<version>.zip --repo borasavkar/WinCare
+```
+
 **From source:** clone the repository and run `WinCare.bat`, or build the executable (see below).
 
 ```
@@ -158,6 +164,18 @@ The new language appears in **Settings** automatically.
 - `src/*.ps1` and `src/*.psm1` are kept **ASCII-only**; all text lives in `lang/`. This avoids code page problems with Windows PowerShell 5.1.
 - All work runs in a background runspace; the UI thread only updates controls.
 - Output of `dism`, `sfc` and `winget` is language dependent, so the code relies on exit codes and structure, never on parsing localized text.
+
+## Privacy
+
+This program will not transfer any information to other networked systems unless specifically requested by the user. The only network traffic is the optional internet speed test, which you start yourself and which exchanges only test data with Cloudflare's public speed test (`speed.cloudflare.com`, see [Cloudflare's privacy policy](https://www.cloudflare.com/privacypolicy/)). Settings and run history stay on your PC in `%APPDATA%\WinCare`.
+
+## Uninstall
+
+WinCare installs nothing and registers no service. To remove it:
+
+1. If you pinned it, right-click the taskbar icon and choose **Unpin from taskbar**.
+2. Delete the WinCare folder.
+3. Optionally delete `%APPDATA%\WinCare` (settings and run history).
 
 ## License
 
