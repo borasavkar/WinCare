@@ -58,7 +58,7 @@ Run history is stored locally in `%APPDATA%\WinCare\history.json`.
 - **Startup problems** — restart into the recovery environment with the right `bootrec` / `bcdboot` commands for your firmware
 - **Disks** — free space, SMART health (temperature, wear, errors), read-only file system scan,
   `chkdsk /f` `/r` `/f /r /x`, media-aware optimization (TRIM for SSD, defrag for HDD only)
-- **Internet speed test** — download, upload, ping and jitter (4 parallel connections, warm-up ignored, ping via ICMP); the last result is kept
+- **Internet speed test** — on the Overview and Network pages: download, upload, ping and jitter (4 parallel connections, warm-up ignored, ping via ICMP); the last result is kept, and a failed attempt never hides it
 - **Network** — connection diagnosis, `ipconfig /flushdns`, adapter restart,
   `netsh winsock reset` and `netsh int ip reset` (opt-in, with warnings)
 - **Live output** — the running command, elapsed time, real progress percentage and latest output lines, in a panel you can hide

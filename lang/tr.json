@@ -374,5 +374,8 @@
   "msg.speed.now": "{0} Mbps",
   "msg.speed.done": "İndirme {0} Mbps, yükleme {1} Mbps, ping {2} ms",
   "msg.speed.fail": "Hız testi başarısız: {0}",
-  "rec.speed": "İnternet yavaş geldiğinde çalıştırın"
+  "rec.speed": "İnternet yavaş geldiğinde çalıştırın",
+  "speed.never": "Henüz test edilmedi",
+  "speed.last": "Son test: {0}  |  Sunucu: {1}",
+  "speed.lastFailed": "Son test başarısız ({0}) - önceki sonuç gösteriliyor"
 }

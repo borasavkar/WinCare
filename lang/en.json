@@ -374,5 +374,8 @@
   "msg.speed.now": "{0} Mbps",
   "msg.speed.done": "Download {0} Mbps, upload {1} Mbps, ping {2} ms",
   "msg.speed.fail": "Speed test failed: {0}",
-  "rec.speed": "Run when the internet feels slow"
+  "rec.speed": "Run when the internet feels slow",
+  "speed.never": "Not tested yet",
+  "speed.last": "Last test: {0}  |  Server: {1}",
+  "speed.lastFailed": "Last test failed ({0}) - showing the previous result"
 }
