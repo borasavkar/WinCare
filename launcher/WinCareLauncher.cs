@@ -16,9 +16,9 @@ using System.Windows.Forms;
 [assembly: AssemblyProduct("WinCare")]
 [assembly: AssemblyCompany("WinCare contributors")]
 [assembly: AssemblyCopyright("Copyright (c) 2026 borasavkar - MIT License")]
-[assembly: AssemblyVersion("1.4.2.0")]
-[assembly: AssemblyFileVersion("1.4.2.0")]
-[assembly: AssemblyInformationalVersion("1.4.2")]
+[assembly: AssemblyVersion("1.5.0.0")]
+[assembly: AssemblyFileVersion("1.5.0.0")]
+[assembly: AssemblyInformationalVersion("1.5.0")]
 
 static class Program
 {
