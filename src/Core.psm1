@@ -403,6 +403,16 @@ function Get-FreeSpace {
 # =============================================================================
 #  Security / state
 # =============================================================================
+function Get-PendingRestart {
+    <#
+        Why a restart is pending, from strong signals only. PendingFileRenameOperations
+        is reported separately by Get-SecurityStatus: some apps leave permanent
+        entries there that never clear after a reboot.
+    #>
+    if (Test-Path 'HKLM:\SOFTWARE\Microsoft\Windows\CurrentVersion\Component Based Servicing\RebootPending') { 'CBS' }
+    if (Test-Path 'HKLM:\SOFTWARE\Microsoft\Windows\CurrentVersion\WindowsUpdate\Auto Update\RebootRequired') { 'Windows Update' }
+}
+
 function Get-SecurityStatus {
     $r = [pscustomobject]@{
         ProtectionOn = $null; SignatureAge = $null
@@ -415,11 +425,7 @@ function Get-SecurityStatus {
         $r.SignatureAge = [int]$mp.AntivirusSignatureAge
     } catch { }
 
-    # Strong signals only. PendingFileRenameOperations is reported separately:
-    # some apps leave permanent entries there that never clear after a reboot.
-    $reasons = @()
-    if (Test-Path 'HKLM:\SOFTWARE\Microsoft\Windows\CurrentVersion\Component Based Servicing\RebootPending') { $reasons += 'CBS' }
-    if (Test-Path 'HKLM:\SOFTWARE\Microsoft\Windows\CurrentVersion\WindowsUpdate\Auto Update\RebootRequired') { $reasons += 'Windows Update' }
+    $reasons = @(Get-PendingRestart)
     $r.RebootReasons = $reasons
     $r.RebootRequired = ($reasons.Count -gt 0)
 
@@ -831,6 +837,38 @@ function Test-Network {
     $r
 }
 
+function Measure-Ping {
+    <#
+        ICMP round trips to 1.1.1.1 (Cloudflare's own network), in ms. This is what
+        people know as "ping" and is far steadier than HTTP round trips, which
+        include server work. Returns the List itself (fewer than half the samples
+        means ICMP is blocked).
+    #>
+    param([int]$Count = 10, [int]$TimeoutMs = 1500, [scriptblock]$Notify, [string]$Title)
+    $samples = New-Object System.Collections.Generic.List[double]
+    $icmp = New-Object System.Net.NetworkInformation.Ping
+    try {
+        for ($i = 0; $i -lt $Count; $i++) {
+            try { $x = $icmp.Send('1.1.1.1', $TimeoutMs); if ($x.Status -eq 'Success') { $samples.Add([double]$x.RoundtripTime) } } catch { }
+            Send-Live $Notify $Title ($i / $Count * 100) ''
+            Start-Sleep -Milliseconds 100
+        }
+    } finally { $icmp.Dispose() }
+    , $samples          # the comma keeps the List from being unrolled into numbers
+}
+
+function Get-PingStats {
+    <# Median round trip and jitter (mean difference between consecutive samples); $null without samples. #>
+    param($Samples)
+    $r = [pscustomobject]@{ PingMs = $null; JitterMs = $null }
+    if ($null -eq $Samples -or $Samples.Count -eq 0) { return $r }
+    $sorted = @($Samples | Sort-Object)
+    $r.PingMs = [math]::Round($sorted[[int][math]::Floor($sorted.Count / 2)], 1)
+    $diffs = for ($i = 1; $i -lt $Samples.Count; $i++) { [math]::Abs($Samples[$i] - $Samples[$i - 1]) }
+    $r.JitterMs = if (@($diffs).Count) { [math]::Round((@($diffs) | Measure-Object -Average).Average, 1) } else { 0.0 }
+    $r
+}
+
 function Test-InternetSpeed {
     <#
         Internet speed test against Cloudflare's public endpoints
@@ -867,16 +905,7 @@ function Test-InternetSpeed {
 
         # --- latency ---
         Send-Progress $Notify (T 'msg.speed.ping') 'step'
-        $samples = New-Object System.Collections.Generic.List[double]
-        # ICMP to 1.1.1.1 (Cloudflare's own network) is what people know as "ping"
-        # and is far steadier than HTTP round trips, which include server work.
-        $icmp = New-Object System.Net.NetworkInformation.Ping
-        for ($i = 0; $i -lt 10; $i++) {
-            try { $x = $icmp.Send('1.1.1.1', 1500); if ($x.Status -eq 'Success') { $samples.Add([double]$x.RoundtripTime) } } catch { }
-            Send-Live $Notify (T 'msg.speed.ping') ($i / 10.0 * 100) ''
-            Start-Sleep -Milliseconds 100
-        }
-        $icmp.Dispose()
+        $samples = Measure-Ping -Notify $Notify -Title (T 'msg.speed.ping')
         if ($samples.Count -lt 5) {
             # ICMP blocked: fall back to HTTP round trips on a reused connection
             $samples.Clear()
@@ -888,10 +917,8 @@ function Test-InternetSpeed {
                 if ($i -gt 0) { $samples.Add($sw.Elapsed.TotalMilliseconds) }
             }
         }
-        $sorted = @($samples | Sort-Object)
-        $r.PingMs = [math]::Round($sorted[[int][math]::Floor($sorted.Count / 2)], 1)
-        $diffs = for ($i = 1; $i -lt $samples.Count; $i++) { [math]::Abs($samples[$i] - $samples[$i - 1]) }
-        $r.JitterMs = [math]::Round((@($diffs) | Measure-Object -Average).Average, 1)
+        $stats = Get-PingStats $samples
+        $r.PingMs = $stats.PingMs; $r.JitterMs = $stats.JitterMs
 
         # --- download ---
         $title = T 'msg.speed.down'
@@ -1025,6 +1052,272 @@ function Restart-NetworkAdapter {
 }
 
 # =============================================================================
+#  Performance: memory and the "before you play" check (read-only)
+# =============================================================================
+# There is deliberately no "free up RAM" action. Windows keeps spare memory
+# filled with a cache of recently used files (the standby list) and hands it
+# back the moment a program asks; emptying it only makes Windows read the same
+# files from disk again. Likewise no services are stopped and no "game booster"
+# tweaks are applied: they change Windows settings for little or no gain.
+
+# Memory is under pressure when little of it can be handed out right away, or
+# when programs have reserved almost all that RAM plus the page file can back.
+$script:MemLowAvailablePercent = 10
+$script:MemHighCommitPercent   = 90
+# A program is "busy" when it used this share of the whole processor during
+# the sample; programs below ListCpuPercent are not listed at all.
+$script:BusyCpuPercent = 15
+$script:ListCpuPercent = 2
+
+# Never offered for closing: Windows itself, the shell and hosts of other apps
+$script:NeverClose = @(
+    'System', 'Idle', 'Registry', 'Memory Compression', 'Secure System', 'smss', 'csrss', 'wininit', 'winlogon',
+    'services', 'lsass', 'svchost', 'dwm', 'explorer', 'fontdrvhost', 'sihost', 'ctfmon', 'taskhostw',
+    'RuntimeBroker', 'SearchHost', 'StartMenuExperienceHost', 'ShellExperienceHost', 'TextInputHost',
+    'ApplicationFrameHost', 'LockApp', 'audiodg', 'conhost', 'dllhost', 'WmiPrvSE', 'SecurityHealthSystray',
+    'msedgewebview2'        # a browser engine inside other apps; closing it breaks the app that hosts it
+)
+# Background work people often do not know about; shown as a hint next to it
+$script:AppHints = [ordered]@{
+    update   = @('TiWorker', 'TrustedInstaller', 'MoUsoCoreWorker', 'usocoreworker', 'wuauclt', 'WaaSMedicAgent', 'SIHClient')
+    defender = @('MsMpEng', 'MpDefenderCoreService', 'NisSrv', 'MpCmdRun')
+    onedrive = @('OneDrive', 'OneDrive.Sync.Service')
+    search   = @('SearchIndexer', 'SearchProtocolHost', 'SearchFilterHost')
+}
+
+function Test-NameIn {
+    <# Ordinal, case-insensitive (see the Turkish "I" note in Test-SafePath). #>
+    param([string]$Name, [string[]]$List)
+    foreach ($x in $List) { if ([string]::Equals($Name, $x, [StringComparison]::OrdinalIgnoreCase)) { return $true } }
+    $false
+}
+
+function New-AppEntry {
+    <#
+        One row per program (all processes with the same name): a readable name
+        and, when one of its processes has a window, the process WinCare may ask
+        to close. Hosts, the shell and Windows itself are never closable.
+    #>
+    param([string]$Name, [object[]]$Processes, [double]$Bytes, $CpuPercent = $null)
+    $title = ''; $closeId = 0
+    $session = [Diagnostics.Process]::GetCurrentProcess().SessionId
+    foreach ($p in $Processes) {
+        if (-not $title) {
+            try { $d = $p.MainModule.FileVersionInfo.FileDescription; if ($d -and $d.Trim().Length -le 60) { $title = $d.Trim() } } catch { }
+        }
+        if (-not $closeId) {
+            try { if ($p.MainWindowHandle -ne [IntPtr]::Zero -and $p.SessionId -eq $session) { $closeId = $p.Id } } catch { }
+        }
+    }
+    if (Test-NameIn $Name $script:NeverClose) { $closeId = 0 }
+    foreach ($p in $Processes) { if ($p.Id -eq $PID) { $closeId = 0 } }
+    $hint = ''
+    foreach ($k in $script:AppHints.Keys) { if (Test-NameIn $Name $script:AppHints[$k]) { $hint = $k; break } }
+    [pscustomobject]@{
+        Name = $Name; Title = $(if ($title) { $title } else { $Name }); Count = @($Processes).Count
+        Bytes = $Bytes; CpuPercent = $CpuPercent; CloseId = $closeId; Hint = $hint
+    }
+}
+
+function Get-MemoryStatus {
+    <#
+        Read-only memory snapshot. "Available" is free memory plus the standby
+        cache: a full cache is good, not a problem. Pressure means little
+        available memory or a commit charge close to its limit.
+    #>
+    param([int]$Top = 5)
+    $r = [pscustomobject]@{
+        TotalBytes = [double]0; AvailableBytes = [double]0; AvailablePercent = 0.0
+        CommitBytes = [double]0; CommitLimitBytes = [double]0; CommitPercent = 0.0
+        CacheBytes = $null; DriverBytes = $null
+        Modules = @(); SpeedMts = $null; RatedMts = $null
+        TopApps = @(); Pressure = $false; PressureReason = ''; Time = Get-Date
+    }
+    try {
+        # Win32_OperatingSystem works even when performance counters are disabled.
+        # FreePhysicalMemory is the "available" figure (free + standby cache);
+        # the virtual memory pair is the commit limit and what is left of it.
+        $os = Get-CimInstance Win32_OperatingSystem -ErrorAction Stop
+        $r.TotalBytes       = [double]$os.TotalVisibleMemorySize * 1KB
+        $r.AvailableBytes   = [double]$os.FreePhysicalMemory * 1KB
+        $r.CommitLimitBytes = [double]$os.TotalVirtualMemorySize * 1KB
+        $r.CommitBytes      = [math]::Max(0.0, $r.CommitLimitBytes - [double]$os.FreeVirtualMemory * 1KB)
+        if ($r.TotalBytes -gt 0)       { $r.AvailablePercent = [math]::Round($r.AvailableBytes / $r.TotalBytes * 100, 1) }
+        if ($r.CommitLimitBytes -gt 0) { $r.CommitPercent    = [math]::Round($r.CommitBytes / $r.CommitLimitBytes * 100, 1) }
+    } catch { }
+    try {
+        $pm = Get-CimInstance Win32_PerfFormattedData_PerfOS_Memory -ErrorAction Stop
+        $r.CacheBytes  = [double]$pm.StandbyCacheCoreBytes + [double]$pm.StandbyCacheNormalPriorityBytes + [double]$pm.StandbyCacheReserveBytes
+        $r.DriverBytes = [double]$pm.PoolNonpagedBytes
+    } catch { }
+    try {
+        $mods = @(Get-CimInstance Win32_PhysicalMemory -ErrorAction Stop)
+        $r.Modules = @($mods | ForEach-Object { [double]$_.Capacity })
+        # Speed = what the modules report, ConfiguredClockSpeed = what they run at (MT/s)
+        $run  = @($mods | ForEach-Object { [int]$_.ConfiguredClockSpeed } | Where-Object { $_ -gt 0 })
+        $rate = @($mods | ForEach-Object { [int]$_.Speed } | Where-Object { $_ -gt 0 })
+        if ($run.Count)  { $r.SpeedMts = [int]($run  | Measure-Object -Minimum).Minimum }
+        if ($rate.Count) { $r.RatedMts = [int]($rate | Measure-Object -Minimum).Minimum }
+    } catch { }
+    try {
+        # Private bytes: what each program has reserved for itself, without
+        # counting shared system files once per process
+        $groups = foreach ($g in (Get-Process -ErrorAction Stop | Where-Object { $_.Id -gt 4 } | Group-Object ProcessName)) {
+            $sum = [double]0; foreach ($p in $g.Group) { $sum += [double]$p.PrivateMemorySize64 }
+            [pscustomobject]@{ Name = $g.Name; Bytes = $sum; Processes = $g.Group }
+        }
+        $r.TopApps = @($groups | Sort-Object Bytes -Descending | Select-Object -First $Top |
+                       ForEach-Object { New-AppEntry -Name $_.Name -Processes $_.Processes -Bytes $_.Bytes })
+    } catch { }
+    if ($r.TotalBytes -gt 0 -and $r.AvailablePercent -lt $script:MemLowAvailablePercent) { $r.Pressure = $true; $r.PressureReason = 'available' }
+    elseif ($r.CommitLimitBytes -gt 0 -and $r.CommitPercent -gt $script:MemHighCommitPercent) { $r.Pressure = $true; $r.PressureReason = 'commit' }
+    $r
+}
+
+function Get-CpuSample {
+    <#
+        Processor use per program over a few seconds, from each process's own
+        CPU time (language independent, unlike performance counter names).
+        Percent = share of the whole processor (all logical cores).
+    #>
+    param([int]$Seconds = 3, [scriptblock]$Notify, [string]$Title)
+    $snap = {
+        $h = @{}
+        foreach ($p in (Get-Process -ErrorAction SilentlyContinue)) {
+            if ($p.Id -eq 0 -or $p.Id -eq $PID) { continue }
+            try { $t = $p.TotalProcessorTime; if ($null -ne $t) { $h[$p.Id] = @($p, $t.Ticks) } } catch { }
+        }
+        $h
+    }
+    $t0 = [Diagnostics.Stopwatch]::GetTimestamp()
+    $first = & $snap
+    $sw = [Diagnostics.Stopwatch]::StartNew()
+    while ($sw.ElapsedMilliseconds -lt $Seconds * 1000) {
+        Start-Sleep -Milliseconds 250
+        Send-Live $Notify $Title ([math]::Min(100.0, $sw.ElapsedMilliseconds / ($Seconds * 10.0))) ''
+    }
+    $t1 = [Diagnostics.Stopwatch]::GetTimestamp()
+    $second = & $snap
+    $capacity = ($t1 - $t0) / [Diagnostics.Stopwatch]::Frequency * 1e7 * [Environment]::ProcessorCount   # in 100 ns ticks
+    $byName = @{}; $total = [double]0
+    foreach ($id in $second.Keys) {
+        if (-not $first.ContainsKey($id)) { continue }
+        $delta = [math]::Max(0.0, [double]($second[$id][1] - $first[$id][1]))
+        $total += $delta
+        $p = $second[$id][0]
+        if (-not $byName.ContainsKey($p.ProcessName)) { $byName[$p.ProcessName] = @{ Ticks = [double]0; Processes = New-Object System.Collections.Generic.List[object] } }
+        $byName[$p.ProcessName].Ticks += $delta
+        $byName[$p.ProcessName].Processes.Add($p)
+    }
+    $pct = { param([double]$Ticks) if ($capacity -le 0) { 0.0 } else { [math]::Round([math]::Min(100.0, $Ticks / $capacity * 100), 1) } }
+    [pscustomobject]@{
+        TotalPercent = (& $pct $total)
+        Groups = @(foreach ($n in $byName.Keys) {
+            [pscustomobject]@{ Name = $n; Percent = (& $pct $byName[$n].Ticks); Processes = $byName[$n].Processes.ToArray() }
+        })
+    }
+}
+
+function Get-GamingReadiness {
+    <#
+        "Before you play": what can get in the way of a game right now.
+        Warnings: programs keeping the processor busy, memory pressure, a pending
+        restart, running on battery, nearly full drives. Information only: Game
+        Mode, background recording, ping. Read-only; nothing is stopped or changed.
+    #>
+    param([int]$SampleSeconds = 3, [int]$PingCount = 10, [int]$Top = 5, [scriptblock]$Notify)
+    $title = T 'msg.game.cpu'
+    Send-Progress $Notify $title 'step'
+    $cpu = Get-CpuSample -Seconds $SampleSeconds -Notify $Notify -Title $title
+    $apps = @(foreach ($g in ($cpu.Groups | Sort-Object Percent -Descending | Select-Object -First $Top)) {
+        if ($g.Percent -lt $script:ListCpuPercent) { continue }
+        $bytes = [double]0; foreach ($p in $g.Processes) { try { $bytes += [double]$p.PrivateMemorySize64 } catch { } }
+        New-AppEntry -Name $g.Name -Processes $g.Processes -Bytes $bytes -CpuPercent ([int][math]::Round($g.Percent))
+    })
+    $busy = @($apps | Where-Object { $_.CpuPercent -ge $script:BusyCpuPercent }).Count
+
+    $mem = Get-MemoryStatus -Top $Top
+    $reboot = @(Get-PendingRestart)
+    $low = @(Get-VolumeInfo | Where-Object { $_.Low })
+
+    # Settings are only READ. WinCare runs elevated with the signed-in user's
+    # profile, so HKCU is that user's. A missing value means the Windows default.
+    $gameMode = $true
+    try {
+        $v = (Get-ItemProperty 'HKCU:\Software\Microsoft\GameBar' -Name AutoGameModeEnabled -ErrorAction Stop).AutoGameModeEnabled
+        if ($null -ne $v) { $gameMode = ([int]$v -ne 0) }
+    } catch { }
+    $recording = $false
+    try {
+        $dvr = Get-ItemProperty 'HKCU:\Software\Microsoft\Windows\CurrentVersion\GameDVR' -ErrorAction Stop
+        $recording = ($dvr.PSObject.Properties['HistoricalCaptureEnabled'] -and [int]$dvr.HistoricalCaptureEnabled -eq 1 -and
+                      -not ($dvr.PSObject.Properties['AppCaptureEnabled'] -and [int]$dvr.AppCaptureEnabled -eq 0))
+    } catch { }
+    $hasBattery = $false; $onBattery = $false
+    try {
+        Add-Type -AssemblyName System.Windows.Forms
+        $ps = [System.Windows.Forms.SystemInformation]::PowerStatus
+        $hasBattery = -not ($ps.BatteryChargeStatus -band [System.Windows.Forms.BatteryChargeStatus]::NoSystemBattery)
+        $onBattery = $hasBattery -and ($ps.PowerLineStatus -eq [System.Windows.Forms.PowerLineStatus]::Offline)
+    } catch { }
+
+    $ping = $null
+    if ($PingCount -gt 0) {
+        Send-Progress $Notify (T 'msg.speed.ping') 'step'
+        $ping = Get-PingStats (Measure-Ping -Count $PingCount -TimeoutMs 1000 -Notify $Notify -Title (T 'msg.speed.ping'))
+    }
+
+    $warn = $low.Count
+    if ($busy) { $warn++ }; if ($mem.Pressure) { $warn++ }; if ($reboot.Count) { $warn++ }; if ($onBattery) { $warn++ }
+    if ($warn) { Send-Progress $Notify (T 'msg.game.issues' $warn) 'warn' } else { Send-Progress $Notify (T 'msg.game.ok') 'ok' }
+    [pscustomobject]@{
+        Ok = ($warn -eq 0); Warnings = $warn; Time = Get-Date
+        CpuPercent = $cpu.TotalPercent; Apps = $apps; Busy = $busy
+        Memory = $mem; RebootReasons = $reboot; LowVolumes = $low
+        GameMode = $gameMode; BackgroundRecording = $recording; HasBattery = $hasBattery; OnBattery = $onBattery
+        PingMs = $(if ($ping) { $ping.PingMs }); JitterMs = $(if ($ping) { $ping.JitterMs })
+    }
+}
+
+function Close-AppGracefully {
+    <#
+        Asks a program to close with the same request as its X button
+        (Process.CloseMainWindow). The program can still ask to save or say no.
+        Nothing is ever killed. Windows, the shell and windowless processes are refused.
+        State: closed | waiting (still open, e.g. asking to save) | refused | gone
+    #>
+    param([Parameter(Mandatory)][int]$Id, [string]$Name = '', [int]$WaitSeconds = 5, [scriptblock]$Notify)
+    $r = [pscustomobject]@{ Id = $Id; Name = $Name; State = 'gone'; Ok = $false }
+    $p = $null
+    try { $p = Get-Process -Id $Id -ErrorAction Stop } catch {
+        Send-Progress $Notify (T 'msg.close.gone') 'info'
+        return $r
+    }
+    try {
+        if (-not $r.Name) { $r.Name = $p.ProcessName }
+        $session = [Diagnostics.Process]::GetCurrentProcess().SessionId
+        if ($p.Id -eq $PID -or $p.SessionId -ne $session -or (Test-NameIn $p.ProcessName $script:NeverClose) -or
+            $p.MainWindowHandle -eq [IntPtr]::Zero) {
+            $r.State = 'refused'
+            Send-Progress $Notify (T 'msg.close.refused' $r.Name) 'warn'
+            return $r
+        }
+        [void]$p.CloseMainWindow()
+        if ($p.WaitForExit($WaitSeconds * 1000)) {
+            $r.State = 'closed'; $r.Ok = $true
+            Send-Progress $Notify (T 'msg.close.done' $r.Name) 'ok'
+        } else {
+            $r.State = 'waiting'
+            Send-Progress $Notify (T 'msg.close.waiting' $r.Name) 'warn'
+        }
+    } catch {
+        $r.State = 'refused'
+        Send-Progress $Notify (T 'msg.close.refused' $r.Name) 'warn'
+    } finally { $p.Dispose() }
+    $r
+}
+
+# =============================================================================
 #  Run history (when each command last ran and how it ended)
 # =============================================================================
 function Get-RunHistoryPath {
@@ -1104,7 +1397,7 @@ Export-ModuleMember -Function @(
     'Read-LanguageFile','Get-AvailableLanguages','Get-DefaultLanguageCode','Initialize-Language','T','Get-AppCulture',
     'Send-Progress','Format-Size','Get-FolderSize','Test-SafePath','Test-IsAdmin',
     'Get-SystemInfo','Get-DiskHealth','Get-MediaType','Get-VolumeInfo','Get-FreeSpace',
-    'Get-SecurityStatus','Get-OutdatedApps',
+    'Get-PendingRestart','Get-SecurityStatus','Get-OutdatedApps',
     'Get-CleanupTargets','Invoke-CleanupTarget','Get-RecycleBinSize','Clear-RecycleBinSafe',
     'Get-DeliveryCacheSize','Clear-DeliveryCache','Stop-UpdateServices','Start-UpdateServices',
     'Test-ComponentStore','Invoke-ScanHealth','Repair-ComponentStore','Invoke-Sfc',
@@ -1112,6 +1405,7 @@ Export-ModuleMember -Function @(
     'Test-VolumeHealth','Repair-VolumeSpotFix','Get-OptimizeStatus','Invoke-Optimize',
     'Test-Network','Clear-DnsCache','Restart-NetworkAdapter',
     'Invoke-WindowsTool','Get-PercentFromText','Send-Live','Get-ProtectedFragments','Invoke-SfcScanFile','Test-WmiRepository','Repair-WmiRepository',
-    'Invoke-Chkdsk','Reset-NetworkStack','Test-InternetSpeed','Format-Mbps',
+    'Invoke-Chkdsk','Reset-NetworkStack','Test-InternetSpeed','Format-Mbps','Measure-Ping','Get-PingStats',
+    'Get-MemoryStatus','Get-CpuSample','Get-GamingReadiness','Close-AppGracefully',
     'Get-RunHistoryPath','Read-RunHistory','Write-RunRecord','Get-LastUpdateDate','Get-ComponentCleanupTask'
 )

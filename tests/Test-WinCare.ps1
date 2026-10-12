@@ -60,6 +60,7 @@ foreach ($m in [regex]::Matches($code, '\[\[([A-Za-z0-9_.]+)\]\]'))      { [void
 foreach ($t in Get-CleanupTargets) { [void]$used.Add("clean.$($t.Key).name"); [void]$used.Add("clean.$($t.Key).desc") }
 foreach ($k in 'Delivery','RecycleBin') { [void]$used.Add("clean.$k.name"); [void]$used.Add("clean.$k.desc") }
 foreach ($s in 'OK','NoIp','NoGateway','NoInternet','NoAdapter') { [void]$used.Add("net.state.$s") }
+foreach ($h in (& (Get-Module Core) { $script:AppHints.Keys })) { [void]$used.Add("perf.hint.$h") }
 $missing = @($used | Where-Object { -not $en.ContainsKey($_) })
 if ($missing.Count) { Fail "keys used in code but missing in en.json: $($missing -join ', ')" } else { Pass "$($used.Count) keys used, all defined" }
 $unused = @($en.Keys | Where-Object { -not $used.Contains($_) })
@@ -89,6 +90,26 @@ foreach ($t in Get-CleanupTargets) {
     if (-not (Test-SafePath $t.Path)) { Fail "cleanup target $($t.Key) is blocked by the safety lock: $($t.Path)" }
 }
 Pass "every cleanup target passes the safety lock"
+
+# --- 3c. Performance checks (read-only) -----------------------------------
+Write-Host "`nPerformance checks" -ForegroundColor Cyan
+Initialize-Language -Directory $lang -Code 'en'
+$m = Get-MemoryStatus
+if ($m.TotalBytes -gt 0 -and $m.AvailableBytes -gt 0 -and $m.AvailableBytes -le $m.TotalBytes -and
+    $m.CommitLimitBytes -ge $m.CommitBytes -and $m.CommitBytes -gt 0) { Pass "memory: $([int]$m.AvailablePercent)% available, $([int]$m.CommitPercent)% of commit limit" }
+else { Fail "memory figures are not plausible: $($m | Out-String)" }
+if (@($m.TopApps).Count -gt 0 -and -not @($m.TopApps | Where-Object { -not $_.Title })) { Pass "memory: $(@($m.TopApps).Count) top programs named" }
+else { Fail 'memory: top programs missing or unnamed' }
+$g = Get-GamingReadiness -SampleSeconds 1 -PingCount 2
+if ($g -isnot [array] -and $null -ne $g.Ok -and $g.Memory -and $g.CpuPercent -ge 0 -and $g.CpuPercent -le 100) { Pass "before-you-play check returns one result (warnings: $($g.Warnings))" }
+else { Fail "before-you-play check returned: $($g | Out-String)" }
+# Closing is refused for WinCare itself, the shell and processes without a window
+$explorer = Get-Process explorer -ErrorAction SilentlyContinue | Select-Object -First 1
+$targets = @($PID) + $(if ($explorer) { $explorer.Id } else { @() })
+$states = @($targets | ForEach-Object { (Close-AppGracefully -Id $_ -WaitSeconds 0).State })
+if (-not @($states | Where-Object { $_ -ne 'refused' }).Count) { Pass "closing is refused for $($targets.Count) protected process(es)" }
+else { Fail "closing was not refused: $($states -join ', ')" }
+if ((Close-AppGracefully -Id 2147483000).State -eq 'gone') { Pass 'closing a missing process reports it as gone' } else { Fail 'closing a missing process' }
 
 # --- 4. UI loads in every language and theme ------------------------------
 Write-Host "`nUser interface" -ForegroundColor Cyan

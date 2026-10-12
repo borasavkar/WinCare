@@ -8,7 +8,7 @@ A clean, minimal maintenance tool for **Windows 11**. It checks your PC's health
 
 ## Why WinCare
 
-**Only Windows' own tools.** Every check, cleanup and repair is done by tools that already ship with Windows: `DISM`, `SFC`, `chkdsk`, `winmgmt`, `netsh`, `ipconfig`, Windows Storage cmdlets and Windows' own Delivery Optimization cleanup. WinCare installs nothing, runs no background service, uses **no third-party cleaners or drivers** and never writes to the registry. Nothing is sent anywhere — the only network traffic is the optional internet speed test, which runs only when you start it and exchanges nothing but test data with Cloudflare's public speed test (`speed.cloudflare.com`). Your Windows settings are left alone; the only exceptions are the two network resets, which run only when you choose them and say so before they start.
+**Only Windows' own tools.** Every check, cleanup and repair is done by tools that already ship with Windows: `DISM`, `SFC`, `chkdsk`, `winmgmt`, `netsh`, `ipconfig`, Windows Storage cmdlets and Windows' own Delivery Optimization cleanup. WinCare installs nothing, runs no background service, uses **no third-party cleaners or drivers** and never writes to the registry. Nothing is sent anywhere — the connection checks only ping your router and Cloudflare (`1.1.1.1`), and the optional internet speed test runs only when you start it and exchanges nothing but test data with Cloudflare's public speed test (`speed.cloudflare.com`). Your Windows settings are left alone; the only exceptions are the two network resets, which run only when you choose them and say so before they start.
 
 **The common repair commands, one click away.** The commands people usually look up and type into an elevated command prompt — `sfc /scannow`, `DISM /RestoreHealth`, `chkdsk /f`, `netsh winsock reset` and the rest — are each a button. The exact command is shown next to the button. While it runs, a small live panel shows the command, the elapsed time, a real progress bar (read from the tool's own percentage output) and its latest output lines, so a long `DISM /RestoreHealth` never looks frozen. The full output is kept on the **Activity** page.
 
@@ -42,6 +42,8 @@ So you run what is useful, not everything every time.
 | `ipconfig /flushdns`, adapter restart | Fixes stale DNS entries and adapters without an IP | The connection has a problem |
 | `netsh winsock reset`, `netsh int ip reset` | Resets the network stack (needs a restart) | The connection has a problem |
 | `bootrec` / `bcdboot` | Startup repair | Windows does not start (shown for the recovery environment) |
+| `mdsched.exe` (Windows Memory Diagnostic) | Tests the RAM during a restart (it asks first) | Programs crash or the PC restarts on its own |
+| *Before you play* check (read-only) | Looks for busy background programs, memory pressure, a pending restart, battery power and full drives | Before you start a game |
 
 Run history is stored locally in `%APPDATA%\WinCare\history.json`.
 
@@ -61,6 +63,14 @@ Run history is stored locally in `%APPDATA%\WinCare\history.json`.
 - **Internet speed test** — on the Overview and Network pages: download, upload, ping and jitter (4 parallel connections, warm-up ignored, ping via ICMP); the last result is kept, and a failed attempt never hides it
 - **Network** — connection diagnosis, `ipconfig /flushdns`, adapter restart,
   `netsh winsock reset` and `netsh int ip reset` (opt-in, with warnings)
+- **Performance** — an honest memory check: what is really available, what programs have reserved, cache,
+  driver memory, RAM speed and the programs using the most memory. Deliberately **no "free up RAM" button**:
+  Windows uses spare memory as a cache and gives it back instantly, so emptying it only slows things down
+- **Before you play** — a read-only check of what could get in the way of a game right now: programs keeping
+  the processor busy (with hints such as *Windows Update is installing*), memory, a pending restart, battery
+  power, nearly full drives, Game Mode, background recording and ping. No services are stopped and no
+  "game booster" tweaks are applied. A busy program can be closed on request — exactly like its X button,
+  so it can still ask you to save
 - **Live output** — the running command, elapsed time, real progress percentage and latest output lines, in a panel you can hide
 - **Run history** — when each command last ran, how it ended, and whether it is needed now
 - **Multilingual** — English and Turkish included; adding a language is one JSON file
@@ -78,6 +88,8 @@ Run history is stored locally in `%APPDATA%\WinCare\history.json`.
 | `fsutil dirty set` is never used | It does not clear NTFS repair records and causes endless "disk error" loops |
 | Network resets are never automatic | Winsock / TCP-IP resets remove VPN and custom IP settings |
 | Thumbnail, icon, GPU shader, Prefetch and font caches are never cleaned | They make Windows and games faster; deleting them only forces a slow rebuild |
+| No "free RAM" button, no service stopping, no "game booster" tweaks | Emptying the memory cache only makes Windows read the same files from disk again; stopping services and changing settings rarely helps a modern PC and can break things |
+| Programs are never killed | Closing a program sends the same request as its X button, so unsaved work still prompts; Windows, the shell and app hosts cannot be closed from WinCare |
 | Culture-invariant path checks | On Turkish Windows culture-aware matching breaks on the letter I |
 
 ## Requirements
@@ -167,7 +179,7 @@ The new language appears in **Settings** automatically.
 
 ## Privacy
 
-This program will not transfer any information to other networked systems unless specifically requested by the user. The only network traffic is the optional internet speed test, which you start yourself and which exchanges only test data with Cloudflare's public speed test (`speed.cloudflare.com`, see [Cloudflare's privacy policy](https://www.cloudflare.com/privacypolicy/)). Settings and run history stay on your PC in `%APPDATA%\WinCare`.
+This program will not transfer any information to other networked systems unless specifically requested by the user. The connection checks send only pings to your router and to Cloudflare (`1.1.1.1`). The optional internet speed test, which you start yourself, exchanges only test data with Cloudflare's public speed test (`speed.cloudflare.com`, see [Cloudflare's privacy policy](https://www.cloudflare.com/privacypolicy/)). Settings and run history stay on your PC in `%APPDATA%\WinCare`.
 
 ## Uninstall
 

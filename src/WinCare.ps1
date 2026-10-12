@@ -15,7 +15,8 @@ param(
     [string]$ScreenshotDir = '',
     [string]$Language = '',
     [string]$Theme = '',
-    [string]$CapturePages = 'NavOverview,NavCleanup,NavHealth,NavDisks,NavNetwork,NavActivity,NavSettings',
+    # 'Live' shows a sample live panel; 'PerfCheck' runs the read-only "before you play" check
+    [string]$CapturePages = 'NavOverview,NavCleanup,NavHealth,NavDisks,NavNetwork,NavPerformance,NavActivity,NavSettings',
     [int]$Height = 0,
     [int]$Width = 0
 )
@@ -519,6 +520,33 @@ $script:XamlTemplate = @'
         </Trigger>
       </Style.Triggers>
     </Style>
+    <Style x:Key="CaptionAuto" TargetType="TextBlock" BasedOn="{StaticResource Caption}">
+      <Style.Triggers><Trigger Property="Text" Value=""><Setter Property="Visibility" Value="Collapsed"/></Trigger></Style.Triggers>
+    </Style>
+    <DataTemplate x:Key="CheckRow">
+      <Grid Margin="0,0,0,10">
+        <Grid.ColumnDefinitions><ColumnDefinition Width="30"/><ColumnDefinition Width="*"/></Grid.ColumnDefinitions>
+        <TextBlock Text="{Binding Glyph}" FontFamily="{StaticResource Icons}" FontSize="15" Foreground="{Binding Brush}" VerticalAlignment="Top" Margin="0,2,0,0"/>
+        <StackPanel Grid.Column="1">
+          <TextBlock Text="{Binding Title}" Style="{StaticResource Body}"/>
+          <TextBlock Text="{Binding Detail}" Style="{StaticResource CaptionAuto}" Margin="0,2,0,0"/>
+        </StackPanel>
+      </Grid>
+    </DataTemplate>
+    <DataTemplate x:Key="AppRow">
+      <Border BorderBrush="{StaticResource StrokeSoft}" BorderThickness="0,1,0,0" Padding="0,9">
+        <Grid>
+          <Grid.ColumnDefinitions><ColumnDefinition Width="*"/><ColumnDefinition Width="Auto"/><ColumnDefinition Width="104"/></Grid.ColumnDefinitions>
+          <StackPanel VerticalAlignment="Center">
+            <TextBlock Text="{Binding Title}" Style="{StaticResource Body}"/>
+            <TextBlock Text="{Binding Detail}" Style="{StaticResource CaptionAuto}" Margin="0,2,0,0"/>
+          </StackPanel>
+          <TextBlock Grid.Column="1" Text="{Binding Value}" FontWeight="SemiBold" Foreground="{StaticResource Text}" VerticalAlignment="Center" Margin="16,0,0,0"/>
+          <Button Grid.Column="2" Style="{StaticResource Subtle}" Content="[[perf.close]]" ToolTip="[[perf.close.tip]]"
+                  Visibility="{Binding CloseVisibility}" HorizontalAlignment="Right" VerticalAlignment="Center"/>
+        </Grid>
+      </Border>
+    </DataTemplate>
     <Style x:Key="Page" TargetType="ScrollViewer">
       <Setter Property="VerticalScrollBarVisibility" Value="Auto"/><Setter Property="Padding" Value="36,28,24,16"/>
     </Style>
@@ -563,6 +591,7 @@ $script:XamlTemplate = @'
           <RadioButton x:Name="NavHealth"   Style="{StaticResource Nav}" Tag="&#xEA18;" Content="[[nav.health]]"/>
           <RadioButton x:Name="NavDisks"    Style="{StaticResource Nav}" Tag="&#xEDA2;" Content="[[nav.disks]]"/>
           <RadioButton x:Name="NavNetwork"  Style="{StaticResource Nav}" Tag="&#xE839;" Content="[[nav.network]]"/>
+          <RadioButton x:Name="NavPerformance" Style="{StaticResource Nav}" Tag="&#xE950;" Content="[[nav.performance]]"/>
           <RadioButton x:Name="NavActivity" Style="{StaticResource Nav}" Tag="&#xE81C;" Content="[[nav.activity]]"/>
         </StackPanel>
       </DockPanel>
@@ -1236,6 +1265,102 @@ $script:XamlTemplate = @'
         </StackPanel>
       </ScrollViewer>
 
+      <!-- PERFORMANCE -->
+      <ScrollViewer x:Name="PagePerformance" Style="{StaticResource Page}" Visibility="Collapsed">
+        <StackPanel MaxWidth="1000">
+          <TextBlock Text="[[perf.title]]" Style="{StaticResource H1}"/>
+          <TextBlock Text="[[perf.sub]]" Style="{StaticResource Sub}" Margin="0,6,0,20"/>
+
+          <TextBlock Text="[[perf.mem.title]]" Style="{StaticResource H2}" Margin="0,0,0,4"/>
+          <TextBlock Text="[[perf.mem.desc]]" Style="{StaticResource Caption}" Margin="0,0,0,10"/>
+          <Border Style="{StaticResource CardBox}" Padding="24">
+            <StackPanel>
+              <Grid>
+                <Grid.ColumnDefinitions><ColumnDefinition Width="Auto"/><ColumnDefinition Width="*"/><ColumnDefinition Width="Auto"/></Grid.ColumnDefinitions>
+                <Border x:Name="MemBadge" Width="48" Height="48" CornerRadius="24" Background="{StaticResource CardAlt}">
+                  <TextBlock x:Name="MemIcon" Text="&#xE964;" FontFamily="{StaticResource Icons}" FontSize="20" Foreground="{StaticResource Text2}"
+                             HorizontalAlignment="Center" VerticalAlignment="Center"/>
+                </Border>
+                <StackPanel Grid.Column="1" Margin="18,0,16,0" VerticalAlignment="Center">
+                  <TextBlock x:Name="TxtMemMain" Text="..." FontFamily="{StaticResource Display}" FontSize="18" FontWeight="SemiBold" Foreground="{StaticResource Text}" TextWrapping="Wrap"/>
+                  <TextBlock x:Name="TxtMemSub" Text="" Style="{StaticResource Sub}" Margin="0,3,0,0"/>
+                </StackPanel>
+                <Button x:Name="BtnMemCheck" Grid.Column="2" Style="{StaticResource Secondary}" Content="[[action.recheck]]" VerticalAlignment="Center"/>
+              </Grid>
+              <Grid Margin="0,22,0,0">
+                <Grid.ColumnDefinitions><ColumnDefinition Width="*"/><ColumnDefinition Width="*"/><ColumnDefinition Width="*"/><ColumnDefinition Width="*"/></Grid.ColumnDefinitions>
+                <StackPanel Grid.Column="0" Margin="0,0,12,0" Background="Transparent" ToolTip="[[perf.mem.avail.tip]]">
+                  <TextBlock Text="[[perf.mem.avail]]" Style="{StaticResource Caption}"/>
+                  <TextBlock x:Name="MemAvail" Text="-" FontFamily="{StaticResource Display}" FontSize="22" FontWeight="SemiBold" Foreground="{StaticResource Text}" Margin="0,6,0,2"/>
+                  <TextBlock x:Name="MemAvailSub" Text="" Style="{StaticResource Caption}"/>
+                </StackPanel>
+                <StackPanel Grid.Column="1" Margin="0,0,12,0" Background="Transparent" ToolTip="[[perf.mem.commit.tip]]">
+                  <TextBlock Text="[[perf.mem.commit]]" Style="{StaticResource Caption}"/>
+                  <TextBlock x:Name="MemCommit" Text="-" FontFamily="{StaticResource Display}" FontSize="22" FontWeight="SemiBold" Foreground="{StaticResource Text}" Margin="0,6,0,2"/>
+                  <TextBlock x:Name="MemCommitSub" Text="" Style="{StaticResource Caption}"/>
+                </StackPanel>
+                <StackPanel Grid.Column="2" Margin="0,0,12,0" Background="Transparent" ToolTip="[[perf.mem.cache.tip]]">
+                  <TextBlock Text="[[perf.mem.cache]]" Style="{StaticResource Caption}"/>
+                  <TextBlock x:Name="MemCache" Text="-" FontFamily="{StaticResource Display}" FontSize="22" FontWeight="SemiBold" Foreground="{StaticResource Text}" Margin="0,6,0,2"/>
+                  <TextBlock Text="[[perf.mem.cache.sub]]" Style="{StaticResource Caption}"/>
+                </StackPanel>
+                <StackPanel Grid.Column="3" Background="Transparent" ToolTip="[[perf.mem.driver.tip]]">
+                  <TextBlock Text="[[perf.mem.driver]]" Style="{StaticResource Caption}"/>
+                  <TextBlock x:Name="MemDriver" Text="-" FontFamily="{StaticResource Display}" FontSize="22" FontWeight="SemiBold" Foreground="{StaticResource Text}" Margin="0,6,0,2"/>
+                  <TextBlock Text="[[perf.mem.driver.sub]]" Style="{StaticResource Caption}"/>
+                </StackPanel>
+              </Grid>
+              <TextBlock x:Name="TxtMemModules" Text="" Style="{StaticResource CaptionAuto}" Margin="0,16,0,0"/>
+              <TextBlock Text="[[perf.mem.top]]" Style="{StaticResource H2}" FontSize="14" Margin="0,22,0,6"/>
+              <ItemsControl x:Name="ListMemTop" ItemTemplate="{StaticResource AppRow}"/>
+              <Border BorderBrush="{StaticResource StrokeSoft}" BorderThickness="0,1,0,0" Padding="0,14,0,0">
+                <Grid>
+                  <Grid.ColumnDefinitions><ColumnDefinition Width="*"/><ColumnDefinition Width="Auto"/></Grid.ColumnDefinitions>
+                  <TextBlock Text="[[perf.mem.diag]]" Style="{StaticResource Caption}" VerticalAlignment="Center" Margin="0,0,16,0"/>
+                  <Button x:Name="BtnMemDiag" Grid.Column="1" Style="{StaticResource Subtle}" Content="[[perf.mem.diag.open]]" VerticalAlignment="Center"/>
+                </Grid>
+              </Border>
+            </StackPanel>
+          </Border>
+
+          <TextBlock Text="[[perf.game.title]]" Style="{StaticResource H2}" Margin="0,22,0,4"/>
+          <TextBlock Text="[[perf.game.desc]]" Style="{StaticResource Caption}" Margin="0,0,0,10"/>
+          <Border Style="{StaticResource CardBox}" Padding="24">
+            <StackPanel>
+              <Grid>
+                <Grid.ColumnDefinitions><ColumnDefinition Width="Auto"/><ColumnDefinition Width="*"/><ColumnDefinition Width="Auto"/></Grid.ColumnDefinitions>
+                <Border x:Name="GameBadge" Width="48" Height="48" CornerRadius="24" Background="{StaticResource CardAlt}">
+                  <TextBlock x:Name="GameIcon" Text="&#xE7FC;" FontFamily="{StaticResource Icons}" FontSize="20" Foreground="{StaticResource Text2}"
+                             HorizontalAlignment="Center" VerticalAlignment="Center"/>
+                </Border>
+                <StackPanel Grid.Column="1" Margin="18,0,16,0" VerticalAlignment="Center">
+                  <TextBlock x:Name="TxtGameMain" Text="[[perf.game.never]]" FontFamily="{StaticResource Display}" FontSize="18" FontWeight="SemiBold" Foreground="{StaticResource Text}" TextWrapping="Wrap"/>
+                  <TextBlock x:Name="TxtGameSub" Text="[[perf.game.hint]]" Style="{StaticResource Sub}" Margin="0,3,0,0"/>
+                </StackPanel>
+                <Button x:Name="BtnGameCheck" Grid.Column="2" Style="{StaticResource Primary}" Content="[[perf.game.start]]" VerticalAlignment="Center"/>
+              </Grid>
+              <ItemsControl x:Name="ListGameChecks" ItemTemplate="{StaticResource CheckRow}" Margin="0,20,0,0"/>
+              <StackPanel x:Name="GameAppsPanel" Visibility="Collapsed" Margin="0,8,0,0">
+                <TextBlock Text="[[perf.game.busy]]" Style="{StaticResource H2}" FontSize="14" Margin="0,0,0,6"/>
+                <ItemsControl x:Name="ListGameApps" ItemTemplate="{StaticResource AppRow}"/>
+              </StackPanel>
+              <Grid Margin="0,12,0,0">
+                <Grid.ColumnDefinitions><ColumnDefinition Width="Auto"/><ColumnDefinition Width="*"/></Grid.ColumnDefinitions>
+                <Ellipse x:Name="HistDotGameCheck" Width="7" Height="7" Fill="{StaticResource Text3}" VerticalAlignment="Top" Margin="0,5,8,0"/>
+                <TextBlock x:Name="HistGameCheck" Grid.Column="1" Text="" FontSize="12" Foreground="{StaticResource Text2}" TextWrapping="Wrap"/>
+              </Grid>
+              <Border BorderBrush="{StaticResource StrokeSoft}" BorderThickness="0,1,0,0" Padding="0,14,0,0" Margin="0,14,0,0">
+                <Grid>
+                  <Grid.ColumnDefinitions><ColumnDefinition Width="*"/><ColumnDefinition Width="Auto"/></Grid.ColumnDefinitions>
+                  <TextBlock Text="[[perf.game.note]]" Style="{StaticResource Caption}" VerticalAlignment="Center" Margin="0,0,16,0"/>
+                  <Button x:Name="BtnGameSettings" Grid.Column="1" Style="{StaticResource Subtle}" Content="[[perf.game.settings]]" VerticalAlignment="Center"/>
+                </Grid>
+              </Border>
+            </StackPanel>
+          </Border>
+        </StackPanel>
+      </ScrollViewer>
+
       <!-- ACTIVITY -->
       <Grid x:Name="PageActivity" Visibility="Collapsed" Margin="36,28,24,16">
         <Grid.RowDefinitions><RowDefinition Height="Auto"/><RowDefinition Height="*"/></Grid.RowDefinitions>
@@ -1376,7 +1501,8 @@ $script:DriveButtons = @(); $script:SelectedDrive = $null; $script:RestartRecove
 $script:ActionButtons = @('BtnQuick','BtnDeep','BtnClean','BtnRemeasure','BtnCheck','BtnScan','BtnRepair','BtnSfc',
                           'BtnApps','BtnAnalyze','BtnComp','BtnFsScan','BtnFsFix','BtnOptimize','BtnNetCheck','BtnDns',
                           'BtnAdapter','ThemeSystem','ThemeLight','ThemeDark','BtnVerify','BtnWmi','BtnWmiFix','BtnBrowse',
-                          'BtnScanFile','BtnChkdsk','BtnWinsock','BtnIpReset','BtnRecovery','BtnSpeed','BtnSpeedOverview','ChkModeF','ChkModeR','ChkModeFrx','TxtScanPath')
+                          'BtnScanFile','BtnChkdsk','BtnWinsock','BtnIpReset','BtnRecovery','BtnSpeed','BtnSpeedOverview','ChkModeF','ChkModeR','ChkModeFrx','TxtScanPath',
+                          'BtnMemCheck','BtnGameCheck','ListMemTop','ListGameApps')
 
 function Get-Brush([string]$Key) { $script:Win.FindResource($Key) }
 
@@ -1645,6 +1771,9 @@ function Update-FromRefresh($Data) {
     # Network
     Update-Network $net
 
+    # Memory (Performance page)
+    Update-MemoryView $Data.Memory
+
     # Attention
     $att = New-Object System.Collections.ObjectModel.ObservableCollection[object]
     $add = { param($g, $b, $t, $d) $att.Add([pscustomobject]@{ Glyph = [string][char]$g; Brush = (Get-Brush $b); Title = $t; Detail = $d }) }
@@ -1656,6 +1785,7 @@ function Update-FromRefresh($Data) {
     if ($net.Status -ne 'OK') { & $add 0xE7BA 'Bad' (T 'att.network') (T "net.state.$($net.Status)") }
     if ($sys.Uptime.TotalDays -gt 7) { & $add 0xE946 'Text3' (T 'att.uptime' ([int]$sys.Uptime.TotalDays)) (T 'att.uptime.d') }
     if ($sec.UnexpectedShutdowns -gt 0) { & $add 0xE946 'Warn' (T 'att.shutdown' $sec.UnexpectedShutdowns) (T 'att.shutdown.d') }
+    if ($Data.Memory -and $Data.Memory.Pressure) { & $add 0xE7BA 'Warn' (T 'perf.mem.bad') (Get-MemPressureText $Data.Memory) }
     $script:Ui.ListAttention.ItemsSource = $att
     $script:Ui.CardAttention.Visibility = if ($att.Count) { 'Visible' } else { 'Collapsed' }
 
@@ -1718,7 +1848,7 @@ function Request-Restart([string]$Title, [string]$Text, [switch]$Recovery) {
 #  Run history and advice ("when did it last run, is it needed now?")
 # =============================================================================
 $script:HistoryKeys = @('CheckHealth','ScanHealth','SfcVerify','WmiVerify','Apps','RestoreHealth','SfcScan','ScanFile',
-                        'WmiSalvage','ComponentCleanup','VolumeScan','Optimize','Chkdsk','Dns','Adapter','Winsock','IpReset','SpeedTest')
+                        'WmiSalvage','ComponentCleanup','VolumeScan','Optimize','Chkdsk','Dns','Adapter','Winsock','IpReset','SpeedTest','GameCheck')
 
 function Get-ResultOk($Result) {
     $items = @($Result | Where-Object { $null -ne $_ })
@@ -1801,6 +1931,7 @@ function Get-Advice([string]$Key) {
         }
         'ScanFile' { return @('cond', (T 'rec.onDemand')) }
         'SpeedTest' { return @('cond', (T 'rec.speed')) }
+        'GameCheck' { return @('cond', (T 'rec.game')) }
         'ComponentCleanup' {
             $lastClean = $null
             if ($h) { $lastClean = $h.Time }
@@ -1905,6 +2036,162 @@ function Update-Network($net) {
     $script:Ui.TileNetSub.Text = if ($net.IP) { $net.IP } else { T "net.state.$($net.Status)" }
 }
 
+# =============================================================================
+#  Performance page (memory, "before you play", closing an app on request)
+# =============================================================================
+function Set-Badge($Badge, $Icon, [string]$State) {
+    switch ($State) {
+        'good'  { $Badge.Background = Get-Brush 'GoodSoft'; $Icon.Foreground = Get-Brush 'Good' }
+        'warn'  { $Badge.Background = Get-Brush 'WarnSoft'; $Icon.Foreground = Get-Brush 'Warn' }
+        default { $Badge.Background = Get-Brush 'CardAlt';  $Icon.Foreground = Get-Brush 'Text2' }
+    }
+}
+
+function Get-MemPressureText($m) {
+    if ($m.PressureReason -eq 'commit') { return (T 'perf.mem.bad.commit' (Format-Size $m.CommitBytes) (Format-Size $m.CommitLimitBytes)) }
+    T 'perf.mem.bad.avail' (Format-Size $m.AvailableBytes) (Format-Size $m.TotalBytes)
+}
+
+function New-AppRow($App, [switch]$Cpu) {
+    # Row for the app lists; Id is the process WinCare may ask to close (0 = none)
+    $parts = @()
+    if ($Cpu) { $parts += (T 'perf.app.mem' (Format-Size $App.Bytes)) }
+    if ($App.Count -gt 1) { $parts += (T 'perf.app.procs' $App.Count) }
+    if ($App.Hint) { $parts += (T "perf.hint.$($App.Hint)") }
+    [pscustomobject]@{
+        Title = $App.Title; Detail = ($parts -join '  |  '); Id = [int]$App.CloseId
+        Value = $(if ($Cpu) { T 'perf.app.cpu' $App.CpuPercent } else { Format-Size $App.Bytes })
+        CloseVisibility = $(if ($App.CloseId) { [System.Windows.Visibility]::Visible } else { [System.Windows.Visibility]::Collapsed })
+    }
+}
+
+function Update-MemoryView($m) {
+    if (-not $m -or -not $script:Ui) { return }
+    if ($script:LastData) { $script:LastData.Memory = $m }
+    $u = $script:Ui; $c = Get-AppCulture
+    $avail = Format-Size $m.AvailableBytes; $total = Format-Size $m.TotalBytes
+    if ($m.Pressure) {
+        $u.TxtMemMain.Text = T 'perf.mem.bad'
+        $sub = Get-MemPressureText $m
+        Set-Badge $u.MemBadge $u.MemIcon 'warn'
+    } else {
+        $u.TxtMemMain.Text = T 'perf.mem.ok'
+        $sub = T 'perf.mem.ok.sub' $avail $total
+        Set-Badge $u.MemBadge $u.MemIcon 'good'
+    }
+    $u.TxtMemSub.Text = "$sub   |   $(T 'perf.mem.measured' ($m.Time.ToString('t', $c)))"
+    $u.MemAvail.Text = $avail
+    $u.MemAvailSub.Text = T 'perf.mem.ofTotal' ([math]::Round($m.AvailablePercent)) $total
+    $u.MemCommit.Text = Format-Size $m.CommitBytes
+    $u.MemCommitSub.Text = T 'perf.mem.limit' (Format-Size $m.CommitLimitBytes) ([math]::Round($m.CommitPercent))
+    $u.MemCache.Text  = if ($null -ne $m.CacheBytes)  { Format-Size $m.CacheBytes }  else { '-' }
+    $u.MemDriver.Text = if ($null -ne $m.DriverBytes) { Format-Size $m.DriverBytes } else { '-' }
+
+    $line = ''
+    $mods = @($m.Modules | Where-Object { $_ -gt 0 })
+    if ($mods.Count) {
+        $sizes = @($mods | ForEach-Object { [math]::Round($_ / 1GB) } | Sort-Object -Unique)
+        $size = if ($sizes.Count -eq 1) { T 'perf.mem.kit' $mods.Count $sizes[0] } else { Format-Size (($mods | Measure-Object -Sum).Sum) }
+        $line = if ($m.SpeedMts) { T 'perf.mem.modules' $size $m.SpeedMts } else { $size }
+        if ($m.SpeedMts -and $m.RatedMts -and $m.RatedMts -gt $m.SpeedMts) { $line += '   |   ' + (T 'perf.mem.slower' $m.RatedMts $m.SpeedMts) }
+    }
+    $u.TxtMemModules.Text = $line
+
+    $list = New-Object System.Collections.ObjectModel.ObservableCollection[object]
+    foreach ($a in @($m.TopApps)) { $list.Add((New-AppRow $a)) }
+    $script:MemAppItems = $list
+    $u.ListMemTop.ItemsSource = $list
+}
+
+function Update-GameView($g) {
+    if (-not $g -or -not $script:Ui) { return }
+    $script:LastGame = $g
+    $u = $script:Ui; $c = Get-AppCulture
+    $items = New-Object System.Collections.ObjectModel.ObservableCollection[object]
+    $add = {
+        param([string]$Kind, [string]$Title, [string]$Detail)
+        $k = @{ ok = @(0xE73E, 'Good'); warn = @(0xE7BA, 'Warn'); info = @(0xE946, 'Text3') }[$Kind]
+        $items.Add([pscustomobject]@{ Glyph = [string][char]$k[0]; Brush = (Get-Brush $k[1]); Title = $Title; Detail = $Detail })
+    }
+    if ($g.Busy) { & $add 'warn' (T 'perf.chk.cpu.bad' $g.Busy) (T 'perf.chk.cpu.bad.d') }
+    else         { & $add 'ok' (T 'perf.chk.cpu.ok') (T 'perf.chk.cpu.ok.d' ([math]::Round($g.CpuPercent))) }
+    $mem = $g.Memory
+    if ($mem.Pressure) { & $add 'warn' (T 'perf.mem.bad') (Get-MemPressureText $mem) }
+    else { & $add 'ok' (T 'perf.chk.mem.ok') (T 'perf.mem.ok.sub' (Format-Size $mem.AvailableBytes) (Format-Size $mem.TotalBytes)) }
+    if (@($g.RebootReasons).Count) { & $add 'warn' (T 'perf.chk.reboot.bad') (T 'perf.chk.reboot.bad.d') }
+    else { & $add 'ok' (T 'perf.chk.reboot.ok') '' }
+    if ($g.HasBattery) {
+        if ($g.OnBattery) { & $add 'warn' (T 'perf.chk.power.battery') (T 'perf.chk.power.battery.d') }
+        else { & $add 'ok' (T 'perf.chk.power.ac') '' }
+    }
+    $low = @($g.LowVolumes)
+    if ($low.Count) { foreach ($v in $low) { & $add 'warn' (T 'att.lowspace' $v.Letter $v.FreePercent) (T 'att.lowspace.d') } }
+    else { & $add 'ok' (T 'perf.chk.disk.ok') '' }
+    if ($g.GameMode) { & $add 'ok' (T 'perf.chk.gamemode.on') (T 'perf.chk.gamemode.on.d') }
+    else { & $add 'info' (T 'perf.chk.gamemode.off') (T 'perf.chk.gamemode.off.d') }
+    if ($g.BackgroundRecording) { & $add 'info' (T 'perf.chk.rec.on') (T 'perf.chk.rec.on.d') }
+    else { & $add 'ok' (T 'perf.chk.rec.off') '' }
+    if ($null -ne $g.PingMs) {
+        & $add 'info' (T 'perf.chk.ping' (([double]$g.PingMs).ToString('N0', $c)) (([double]$g.JitterMs).ToString('N0', $c))) (T 'perf.chk.ping.d')
+    } else { & $add 'info' (T 'perf.chk.ping.fail') (T 'perf.chk.ping.fail.d') }
+
+    if ($g.Ok) { $u.TxtGameMain.Text = T 'perf.game.ok'; Set-Badge $u.GameBadge $u.GameIcon 'good' }
+    else { $u.TxtGameMain.Text = T 'perf.game.issues' $g.Warnings; Set-Badge $u.GameBadge $u.GameIcon 'warn' }
+    $u.TxtGameSub.Text = T 'perf.game.checked' ($g.Time.ToString('t', $c))
+    $u.ListGameChecks.ItemsSource = $items
+
+    $apps = New-Object System.Collections.ObjectModel.ObservableCollection[object]
+    foreach ($a in @($g.Apps)) { $apps.Add((New-AppRow $a -Cpu)) }
+    $script:GameAppItems = $apps
+    $u.ListGameApps.ItemsSource = $apps
+    $u.GameAppsPanel.Visibility = if ($apps.Count) { 'Visible' } else { 'Collapsed' }
+}
+
+function Start-MemoryCheck {
+    Invoke-Background -Title (T 'perf.mem.running') -Work { param($n, $p) Get-MemoryStatus } -Done { param($r) if ($r) { Update-MemoryView @($r)[-1] } }
+}
+
+function Start-GameCheck {
+    # Screenshot mode stays read-only: the check runs but is not written to the run history
+    $hist = if ($ScreenshotDir) { '' } else { 'GameCheck' }
+    Invoke-Background -History $hist -Title (T 'perf.game.running') -Work { param($n, $p) Get-GamingReadiness -Notify $n } -Done {
+        param($r)
+        $g = @($r)[-1]
+        if ($g) { Update-GameView $g; Update-MemoryView $g.Memory }
+    }
+}
+
+function Remove-AppRows([int]$Id) {
+    foreach ($col in $script:MemAppItems, $script:GameAppItems) {
+        if ($null -eq $col) { continue }
+        for ($i = $col.Count - 1; $i -ge 0; $i--) { if ($col[$i].Id -eq $Id) { $col.RemoveAt($i) } }
+    }
+    if ($script:LastGame) { $script:LastGame.Apps = @($script:LastGame.Apps | Where-Object { $_.CloseId -ne $Id }) }
+    if ($null -ne $script:GameAppItems -and $script:GameAppItems.Count -eq 0) { $script:Ui.GameAppsPanel.Visibility = 'Collapsed' }
+}
+
+function Request-CloseApp($Row) {
+    # Always asks first. Closing = the app's own X button; it can still ask to save.
+    if (-not $Row -or -not $Row.Id) { return }
+    $script:CloseTarget = $Row
+    Confirm-Action (T 'close.confirm.title' $Row.Title) (T 'close.confirm.text' $Row.Title) (T 'perf.close') {
+        $p = @{ Id = [int]$script:CloseTarget.Id; Name = [string]$script:CloseTarget.Title }
+        Invoke-Background -Title (T 'msg.close.running' $p.Name) -Params $p -Work { param($n, $p) Close-AppGracefully -Id $p.Id -Name $p.Name -Notify $n } -Done {
+            param($r)
+            $x = @($r)[-1]
+            if ($x -and $x.State -in 'closed', 'gone') { Remove-AppRows $x.Id }
+            Start-MemoryCheck
+        }
+    }
+}
+
+function Get-SystemTool([string]$Name) {
+    # A 32-bit host sees SysWOW64 as System32; Sysnative reaches the real one
+    $p = Join-Path $env:SystemRoot "System32\$Name"
+    if (Test-Path -LiteralPath $p) { return $p }
+    Join-Path $env:SystemRoot "Sysnative\$Name"
+}
+
 # Shared background bodies (strings, because they run in another runspace)
 $script:RefreshWork = {
     param($Notify, $P)
@@ -1921,6 +2208,7 @@ $script:RefreshWork = {
         Recycle  = Get-RecycleBinSize
         LastUpdate  = Get-LastUpdateDate
         WinCompTask = Get-ComponentCleanupTask
+        Memory   = Get-MemoryStatus
     }
 }
 
@@ -2040,7 +2328,7 @@ function New-MainWindow {
     # Navigation
     $script:Pages = [ordered]@{
         NavOverview = 'PageOverview'; NavCleanup = 'PageCleanup'; NavHealth = 'PageHealth'; NavDisks = 'PageDisks'
-        NavNetwork = 'PageNetwork'; NavActivity = 'PageActivity'; NavSettings = 'PageSettings'
+        NavNetwork = 'PageNetwork'; NavPerformance = 'PagePerformance'; NavActivity = 'PageActivity'; NavSettings = 'PageSettings'
     }
     foreach ($n in $script:Pages.Keys) {
         $script:Ui[$n].Add_Checked({ param($s, $e) Show-Page $s.Name })
@@ -2136,7 +2424,9 @@ function Register-Screenshots {
         if ($script:ShotIndex -ge $script:ShotPages.Count) { $script:ShotTimer.Stop(); $script:Rebuild = $false; $script:Win.Close(); return }
         if ($script:ShotIndex -gt 0 -and $script:ShotPages[$script:ShotIndex - 1] -eq 'Live') { Set-Busy $false 'Ready' }
         $next = $script:ShotPages[$script:ShotIndex]
-        if ($next -eq 'Live') { Show-LiveDemo } else { $script:Ui[$next].IsChecked = $true }
+        if ($next -eq 'Live') { Show-LiveDemo }
+        elseif ($next -eq 'PerfCheck') { $script:Ui.NavPerformance.IsChecked = $true; Start-GameCheck }
+        else { $script:Ui[$next].IsChecked = $true }
     })
     $script:Win.Add_ContentRendered({ $script:ShotTimer.Start() })
 }
@@ -2435,6 +2725,19 @@ function Register-Handlers {
     $u.BtnSpeed.Add_Click({ Start-SpeedTest })
     $u.BtnSpeedOverview.Add_Click({ Start-SpeedTest })
 
+    $u.BtnMemCheck.Add_Click({ Start-MemoryCheck })
+    $u.BtnGameCheck.Add_Click({ Start-GameCheck })
+    # Windows' own tools: Memory Diagnostic asks the user itself before restarting
+    $u.BtnMemDiag.Add_Click({ try { Start-Process -FilePath (Get-SystemTool 'mdsched.exe') } catch { Add-Log $_.Exception.Message 'error' } })
+    $u.BtnGameSettings.Add_Click({ try { Start-Process 'ms-settings:gaming-gamemode' } catch { Add-Log $_.Exception.Message 'error' } })
+    # "Close" buttons live inside the list templates; one handler per list
+    $closeClick = [System.Windows.RoutedEventHandler]{
+        param($s, $e)
+        if ($e.OriginalSource -is [System.Windows.Controls.Button]) { Request-CloseApp $e.OriginalSource.DataContext }
+    }
+    $u.ListMemTop.AddHandler([System.Windows.Controls.Primitives.ButtonBase]::ClickEvent, $closeClick)
+    $u.ListGameApps.AddHandler([System.Windows.Controls.Primitives.ButtonBase]::ClickEvent, $closeClick)
+
     $u.BtnClearLog.Add_Click({ $script:LogItems.Clear(); $script:LogStore.Clear() })
     $u.BtnSaveLog.Add_Click({
         try {
@@ -2462,6 +2765,7 @@ while ($script:Rebuild) {
     New-MainWindow
     if ($first) { Add-Log (T 'app.started' $script:AppVersion) 'info'; $first = $false }
     if ($script:LastData) { Update-FromRefresh $script:LastData }
+    if ($script:LastGame) { Update-GameView $script:LastGame }
     $script:Win.Add_ContentRendered({ if (-not $script:LastData) { Start-Refresh } })
     if ($ScreenshotDir) { Register-Screenshots }
     [void]$script:Win.ShowDialog()
