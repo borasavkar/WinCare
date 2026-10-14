@@ -71,6 +71,15 @@ gh attestation verify WinCare-<sürüm>.zip --repo borasavkar/WinCare
 
 Siz istemedikçe hiçbir bilgi başka bir sisteme gönderilmez. Bağlantı kontrolleri yalnızca modeminize ve Cloudflare'e (`1.1.1.1`) ping atar. İsteğe bağlı internet hız testi yalnızca siz başlattığınızda çalışır ve Cloudflare'in açık hız testiyle (`speed.cloudflare.com`) yalnızca test verisi alışverişi yapar. Ayarlar ve çalışma geçmişi bilgisayarınızda, `%APPDATA%\WinCare` klasöründe kalır.
 
+## Kod imzalama politikası
+
+Ücretsiz kod imzalama [SignPath.io](https://signpath.io) tarafından, sertifika [SignPath Foundation](https://signpath.org) tarafından sağlanır.
+
+- Kod yazanlar ve inceleyenler: [borasavkar](https://github.com/borasavkar)
+- Onaylayanlar: [borasavkar](https://github.com/borasavkar)
+
+Gizlilik politikası: [Gizlilik](#gizlilik) bölümüne bakın. Bu program, kullanıcı ya da onu kuran veya çalıştıran kişi özellikle istemedikçe başka sistemlere hiçbir bilgi göndermez.
+
 ## Kaldırma
 
 WinCare hiçbir şey kurmaz ve hizmet kaydetmez. Kaldırmak için:

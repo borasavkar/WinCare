@@ -193,6 +193,15 @@ The new language appears in **Settings** automatically.
 
 This program will not transfer any information to other networked systems unless specifically requested by the user. The connection checks send only pings to your router and to Cloudflare (`1.1.1.1`). The optional internet speed test, which you start yourself, exchanges only test data with Cloudflare's public speed test (`speed.cloudflare.com`, see [Cloudflare's privacy policy](https://www.cloudflare.com/privacypolicy/)). Settings and run history stay on your PC in `%APPDATA%\WinCare`.
 
+## Code signing policy
+
+Free code signing provided by [SignPath.io](https://signpath.io), certificate by [SignPath Foundation](https://signpath.org).
+
+- Committers and reviewers: [borasavkar](https://github.com/borasavkar)
+- Approvers: [borasavkar](https://github.com/borasavkar)
+
+Privacy policy: see [Privacy](#privacy). This program will not transfer any information to other networked systems unless specifically requested by the user or the person installing or operating it.
+
 ## Uninstall
 
 WinCare installs nothing and registers no service. To remove it:
