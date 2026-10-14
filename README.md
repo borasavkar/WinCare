@@ -11,9 +11,9 @@ A clean, minimal maintenance tool for **Windows 11**. It checks your PC's health
 ## At a glance
 
 - **No third-party software** — no programs, drivers or components from anyone else; only tools that ship with Windows
-- **No installation** — extract the ZIP anywhere and run `WinCare.exe`
+- **Portable, no installation** — extract the ZIP to any folder and run `WinCare.exe`; everything stays in that one folder
 - **No background service** — no service, scheduled task or startup entry. Open it, do what you need, close it; nothing keeps running after you close it
-- **No registry writes** — settings and run history are kept in two small files in `%APPDATA%\WinCare`
+- **No registry writes** — settings and run history are small files in the `data` folder next to `WinCare.exe`. Run history is kept per computer, so a copy carried to another PC gives each PC advice about itself
 - **Nothing is sent anywhere** — the connection checks only ping your router and Cloudflare (`1.1.1.1`); the speed test runs only when you start it
 - **Free and open source** (MIT), in English and Turkish
 
@@ -56,7 +56,7 @@ So you run what is useful, not everything every time.
 | `mdsched.exe` (Windows Memory Diagnostic) | Tests the RAM during a restart (it asks first) | Programs crash or the PC restarts on its own |
 | *Before you play* check (read-only) | Looks for busy background programs, memory pressure, a pending restart, battery power and full drives | Before you start a game |
 
-Run history is stored locally in `%APPDATA%\WinCare\history.json`.
+Run history is stored in the `data` folder next to `WinCare.exe`, one file per computer.
 
 ## Features
 
@@ -191,7 +191,7 @@ The new language appears in **Settings** automatically.
 
 ## Privacy
 
-This program will not transfer any information to other networked systems unless specifically requested by the user. The connection checks send only pings to your router and to Cloudflare (`1.1.1.1`). The optional internet speed test, which you start yourself, exchanges only test data with Cloudflare's public speed test (`speed.cloudflare.com`, see [Cloudflare's privacy policy](https://www.cloudflare.com/privacypolicy/)). Settings and run history stay on your PC in `%APPDATA%\WinCare`.
+This program will not transfer any information to other networked systems unless specifically requested by the user. The connection checks send only pings to your router and to Cloudflare (`1.1.1.1`). The optional internet speed test, which you start yourself, exchanges only test data with Cloudflare's public speed test (`speed.cloudflare.com`, see [Cloudflare's privacy policy](https://www.cloudflare.com/privacypolicy/)). Settings and run history stay in the `data` folder next to `WinCare.exe`.
 
 ## Code signing policy
 
@@ -208,7 +208,7 @@ WinCare installs nothing and registers no service. To remove it:
 
 1. If you pinned it, right-click the taskbar icon and choose **Unpin from taskbar**.
 2. Delete the WinCare folder.
-3. Optionally delete `%APPDATA%\WinCare` (settings and run history).
+3. Versions before 1.7 kept settings and run history in `%APPDATA%\WinCare`; if that folder exists, you can delete it too.
 
 ## License
 

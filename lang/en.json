@@ -199,7 +199,7 @@
   "settings.theme.dark": "Dark",
   "settings.about": "About",
   "settings.about.version": "WinCare {0}  |  {1}  |  build {2}",
-  "settings.about.desc": "Free and open source. Uses only tools built into Windows: no third-party programs, drivers or components. No installation and no background service: open it, do what you need, close it. Nothing keeps running after you close it. It does not write to the registry; settings and run history are kept in two small files in %APPDATA%\\WinCare. Nothing is sent anywhere: the connection checks only ping your router and Cloudflare (1.1.1.1), and the optional speed test exchanges test data with speed.cloudflare.com when you start it.",
+  "settings.about.desc": "Free and open source. Uses only tools built into Windows: no third-party programs, drivers or components. No installation and no background service: open it, do what you need, close it. Nothing keeps running after you close it. It does not write to the registry; settings and run history are kept in the data folder next to WinCare.exe, so the whole app is one portable folder. Nothing is sent anywhere: the connection checks only ping your router and Cloudflare (1.1.1.1), and the optional speed test exchanges test data with speed.cloudflare.com when you start it.",
   "status.ready": "Ready",
   "status.stop": "Stop",
   "status.stopped": "Stopped by user",

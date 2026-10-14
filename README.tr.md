@@ -11,9 +11,9 @@
 ## Bir bakışta
 
 - **Üçüncü taraf yazılım yok** — başka birine ait program, sürücü ya da bileşen içermez; yalnızca Windows'la birlikte gelen araçları kullanır
-- **Kurulum gerekmez** — zip'i istediğiniz klasöre çıkarıp `WinCare.exe`'yi çalıştırırsınız
+- **Taşınabilir, kurulum gerekmez** — zip'i istediğiniz klasöre çıkarıp `WinCare.exe`'yi çalıştırırsınız; her şey o tek klasörde kalır
 - **Arka plan hizmeti yok** — hizmet, zamanlanmış görev ya da başlangıç kaydı eklemez. Açın, işinizi yapın, kapatın; kapattıktan sonra hiçbir parçası çalışmaya devam etmez
-- **Kayıt defterine yazmaz** — ayarlarını ve çalışma geçmişini `%APPDATA%\WinCare` klasöründe iki küçük dosyada tutar
+- **Kayıt defterine yazmaz** — ayarlar ve çalışma geçmişi `WinCare.exe`'nin yanındaki `data` klasöründe küçük dosyalarda durur. Çalışma geçmişi her bilgisayar için ayrı tutulur; başka bir bilgisayara taşınan WinCare o bilgisayara kendi durumuna göre öneri verir
 - **Hiçbir veri gönderilmez** — bağlantı kontrolleri yalnızca modeminize ve Cloudflare'e (`1.1.1.1`) ping atar; hız testi yalnızca siz başlattığınızda çalışır
 - **Ücretsiz ve açık kaynak** (MIT lisansı), Türkçe ve İngilizce
 
@@ -69,7 +69,7 @@ gh attestation verify WinCare-<sürüm>.zip --repo borasavkar/WinCare
 
 ## Gizlilik
 
-Siz istemedikçe hiçbir bilgi başka bir sisteme gönderilmez. Bağlantı kontrolleri yalnızca modeminize ve Cloudflare'e (`1.1.1.1`) ping atar. İsteğe bağlı internet hız testi yalnızca siz başlattığınızda çalışır ve Cloudflare'in açık hız testiyle (`speed.cloudflare.com`) yalnızca test verisi alışverişi yapar. Ayarlar ve çalışma geçmişi bilgisayarınızda, `%APPDATA%\WinCare` klasöründe kalır.
+Siz istemedikçe hiçbir bilgi başka bir sisteme gönderilmez. Bağlantı kontrolleri yalnızca modeminize ve Cloudflare'e (`1.1.1.1`) ping atar. İsteğe bağlı internet hız testi yalnızca siz başlattığınızda çalışır ve Cloudflare'in açık hız testiyle (`speed.cloudflare.com`) yalnızca test verisi alışverişi yapar. Ayarlar ve çalışma geçmişi `WinCare.exe`'nin yanındaki `data` klasöründe kalır.
 
 ## Kod imzalama politikası
 
@@ -86,7 +86,7 @@ WinCare hiçbir şey kurmaz ve hizmet kaydetmez. Kaldırmak için:
 
 1. Görev çubuğuna sabitlediyseniz simgeye sağ tıklayıp **Görev çubuğundan kaldır**'ı seçin.
 2. WinCare klasörünü silin.
-3. İsterseniz `%APPDATA%\WinCare` klasörünü de silin (ayarlar ve çalışma geçmişi).
+3. 1.7'den önceki sürümler ayarları ve çalışma geçmişini `%APPDATA%\WinCare` klasöründe tutuyordu; bu klasör varsa onu da silebilirsiniz.
 
 ## Lisans
 

@@ -32,11 +32,28 @@ static class Program
 
         if (!File.Exists(script) || !File.Exists(core) || !File.Exists(lang))
         {
-            MessageBox.Show(
-                "WinCare could not find its files.\n\n" +
-                "Keep WinCare.exe together with the 'src' and 'lang' folders.\n\n" +
-                "Looked in: " + dir,
-                "WinCare", MessageBoxButtons.OK, MessageBoxIcon.Error);
+            // Double-clicking WinCare.exe inside the ZIP makes Windows copy only
+            // the exe to a temporary folder. Say so plainly instead of "files missing".
+            bool fromZip = dir.StartsWith(Path.GetTempPath(), StringComparison.OrdinalIgnoreCase);
+            bool tr = System.Globalization.CultureInfo.CurrentUICulture.TwoLetterISOLanguageName == "tr";
+            string text;
+            if (fromZip && tr)
+                text = "WinCare ZIP dosyasının içinden açılmış.\n\n" +
+                       "Önce ZIP dosyasına sağ tıklayıp \"Tümünü ayıkla\"yı seçin, " +
+                       "sonra çıkardığınız klasördeki WinCare.exe'yi çalıştırın.";
+            else if (fromZip)
+                text = "WinCare was opened from inside the ZIP file.\n\n" +
+                       "Right-click the ZIP file, choose \"Extract All\", then run WinCare.exe from the extracted folder.";
+            else if (tr)
+                text = "WinCare dosyalarını bulamadı.\n\n" +
+                       "WinCare.exe, 'src' ve 'lang' klasörleriyle aynı yerde durmalı.\n\n" +
+                       "Bakılan yer: " + dir;
+            else
+                text = "WinCare could not find its files.\n\n" +
+                       "Keep WinCare.exe together with the 'src' and 'lang' folders.\n\n" +
+                       "Looked in: " + dir;
+            MessageBox.Show(text, "WinCare", MessageBoxButtons.OK,
+                            fromZip ? MessageBoxIcon.Information : MessageBoxIcon.Error);
             return 1;
         }
 

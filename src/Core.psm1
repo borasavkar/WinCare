@@ -1320,10 +1320,48 @@ function Close-AppGracefully {
 # =============================================================================
 #  Run history (when each command last ran and how it ended)
 # =============================================================================
+function Get-DataDirectory {
+    <#
+        Portable: settings and run history live next to the app, in data\, so
+        the whole of WinCare is one folder. Only when that folder cannot be
+        written does it fall back to %APPDATA%\WinCare (where versions before
+        1.7 kept everything). Data of older versions is copied over once.
+    #>
+    if ($script:DataDir) { return $script:DataDir }
+    $legacy = Join-Path $env:APPDATA 'WinCare'
+    $portable = Join-Path (Split-Path -Parent $PSScriptRoot) 'data'
+    $dir = $legacy
+    try {
+        if (-not (Test-Path -LiteralPath $portable)) { New-Item -ItemType Directory -Path $portable -Force -ErrorAction Stop | Out-Null }
+        $probe = Join-Path $portable ('.write-test-' + [guid]::NewGuid().ToString('N'))
+        [IO.File]::WriteAllText($probe, '')
+        Remove-Item -LiteralPath $probe -Force -ErrorAction SilentlyContinue
+        $dir = $portable
+        # Copy, not move: an older WinCare folder on this PC keeps working
+        $pairs = @(@('settings.json', 'settings.json'), @('history.json', (Get-HistoryFileName)))
+        foreach ($pair in $pairs) {
+            $from = Join-Path $legacy $pair[0]; $to = Join-Path $portable $pair[1]
+            if ((Test-Path -LiteralPath $from) -and -not (Test-Path -LiteralPath $to)) { Copy-Item -LiteralPath $from -Destination $to -ErrorAction SilentlyContinue }
+        }
+    } catch { }
+    $script:DataDir = $dir
+    $dir
+}
+
+function Get-HistoryFileName {
+    # Run history belongs to a PC: when WinCare is carried on a USB stick,
+    # each computer keeps its own file and gets advice about itself
+    $name = ($env:COMPUTERNAME -replace '[^A-Za-z0-9_-]', '_')
+    if (-not $name) { $name = 'pc' }
+    "history-$name.json"
+}
+
 function Get-RunHistoryPath {
     # WINCARE_HISTORY overrides the location (tests and screenshots use a throwaway file)
     if ($env:WINCARE_HISTORY) { return $env:WINCARE_HISTORY }
-    Join-Path (Join-Path $env:APPDATA 'WinCare') 'history.json'
+    $dir = Get-DataDirectory
+    $file = if ($dir -eq (Join-Path $env:APPDATA 'WinCare')) { 'history.json' } else { Get-HistoryFileName }
+    Join-Path $dir $file
 }
 
 function Read-RunHistory {
@@ -1407,5 +1445,5 @@ Export-ModuleMember -Function @(
     'Invoke-WindowsTool','Get-PercentFromText','Send-Live','Get-ProtectedFragments','Invoke-SfcScanFile','Test-WmiRepository','Repair-WmiRepository',
     'Invoke-Chkdsk','Reset-NetworkStack','Test-InternetSpeed','Format-Mbps','Measure-Ping','Get-PingStats',
     'Get-MemoryStatus','Get-CpuSample','Get-GamingReadiness','Close-AppGracefully',
-    'Get-RunHistoryPath','Read-RunHistory','Write-RunRecord','Get-LastUpdateDate','Get-ComponentCleanupTask'
+    'Get-DataDirectory','Get-HistoryFileName','Get-RunHistoryPath','Read-RunHistory','Write-RunRecord','Get-LastUpdateDate','Get-ComponentCleanupTask'
 )

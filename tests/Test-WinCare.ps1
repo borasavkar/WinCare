@@ -91,6 +91,18 @@ foreach ($t in Get-CleanupTargets) {
 }
 Pass "every cleanup target passes the safety lock"
 
+# --- 3b2. Portable data folder ----------------------------------------------
+Write-Host "`nPortable data" -ForegroundColor Cyan
+$dataDir = Get-DataDirectory
+$expected = Join-Path $root 'data'
+if ([string]::Equals($dataDir, $expected, [StringComparison]::OrdinalIgnoreCase) -and (Test-Path -LiteralPath $dataDir)) { Pass "settings and history live next to the app: $dataDir" }
+else { Fail "data folder is '$dataDir', expected '$expected'" }
+$saved = $env:WINCARE_HISTORY; $env:WINCARE_HISTORY = ''
+$hp = Get-RunHistoryPath
+$env:WINCARE_HISTORY = $saved
+if ((Split-Path -Leaf $hp) -match '^history-[A-Za-z0-9_-]+\.json$' -and (Split-Path -Parent $hp) -eq $dataDir) { Pass "run history is per computer: $(Split-Path -Leaf $hp)" }
+else { Fail "unexpected run history path: $hp" }
+
 # --- 3c. Performance checks (read-only) -----------------------------------
 Write-Host "`nPerformance checks" -ForegroundColor Cyan
 Initialize-Language -Directory $lang -Code 'en'

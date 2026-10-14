@@ -6,3 +6,6 @@ tests/output/
 # Build output (published as GitHub release assets, not committed)
 WinCare.exe
 dist/
+
+# Portable data: settings and run history (created next to the app)
+data/

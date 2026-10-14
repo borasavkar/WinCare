@@ -31,8 +31,8 @@ $script:ProjectUrl = 'https://github.com/borasavkar/WinCare'
 $script:Root      = Split-Path -Parent $PSScriptRoot
 $script:CorePath  = Join-Path $PSScriptRoot 'Core.psm1'
 $script:LangDir   = Join-Path $script:Root 'lang'
-$script:ConfigDir = Join-Path $env:APPDATA $script:AppName
-$script:ConfigFile= Join-Path $script:ConfigDir 'settings.json'
+$script:ConfigDir = $null      # set after Core is loaded (portable data folder)
+$script:ConfigFile= $null
 
 Add-Type -AssemblyName PresentationFramework, PresentationCore, WindowsBase
 
@@ -41,6 +41,8 @@ if (-not (Test-Path -LiteralPath $script:CorePath) -or -not (Test-Path -LiteralP
     exit 1
 }
 Import-Module $script:CorePath -Force -DisableNameChecking
+$script:ConfigDir  = Get-DataDirectory
+$script:ConfigFile = Join-Path $script:ConfigDir 'settings.json'
 
 # =============================================================================
 #  Settings
