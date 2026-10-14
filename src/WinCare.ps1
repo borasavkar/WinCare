@@ -15,7 +15,8 @@ param(
     [string]$ScreenshotDir = '',
     [string]$Language = '',
     [string]$Theme = '',
-    # 'Live' shows a sample live panel; 'PerfCheck' runs the read-only "before you play" check
+    # 'Live' shows a sample live panel; 'PerfCheck' runs the read-only "before you play" check;
+    # 'Task:<key>' opens a command's page the way the Overview's Show button does (e.g. Task:Apps)
     [string]$CapturePages = 'NavOverview,NavCleanup,NavHealth,NavDisks,NavNetwork,NavPerformance,NavActivity,NavSettings',
     [int]$Height = 0,
     [int]$Width = 0
@@ -533,6 +534,17 @@ $script:XamlTemplate = @'
         </StackPanel>
       </Grid>
     </DataTemplate>
+    <DataTemplate x:Key="TaskRow">
+      <Grid Margin="0,0,0,8">
+        <Grid.ColumnDefinitions><ColumnDefinition Width="30"/><ColumnDefinition Width="*"/><ColumnDefinition Width="Auto"/></Grid.ColumnDefinitions>
+        <Ellipse Width="8" Height="8" Fill="{Binding Brush}" HorizontalAlignment="Left" VerticalAlignment="Top" Margin="2,7,0,0"/>
+        <StackPanel Grid.Column="1" VerticalAlignment="Center">
+          <TextBlock Text="{Binding Title}" Style="{StaticResource Body}"/>
+          <TextBlock Text="{Binding Detail}" Style="{StaticResource CaptionAuto}" Margin="0,2,0,0"/>
+        </StackPanel>
+        <Button Grid.Column="2" Style="{StaticResource Subtle}" Content="[[overview.tasks.show]]" VerticalAlignment="Center" Margin="12,0,0,0"/>
+      </Grid>
+    </DataTemplate>
     <DataTemplate x:Key="AppRow">
       <Border BorderBrush="{StaticResource StrokeSoft}" BorderThickness="0,1,0,0" Padding="0,9">
         <Grid>
@@ -689,6 +701,13 @@ $script:XamlTemplate = @'
                   </DataTemplate>
                 </ItemsControl.ItemTemplate>
               </ItemsControl>
+            </StackPanel>
+          </Border>
+
+          <Border x:Name="CardTasks" Style="{StaticResource CardBox}" Visibility="Collapsed">
+            <StackPanel>
+              <TextBlock Text="[[overview.tasks]]" Style="{StaticResource H2}" Margin="0,0,0,12"/>
+              <ItemsControl x:Name="ListTasks" ItemTemplate="{StaticResource TaskRow}"/>
             </StackPanel>
           </Border>
 
@@ -1992,8 +2011,9 @@ function Start-SpeedTest {
 }
 
 function Update-SpeedView {
-    # One test, one history record, two views: Network page and Overview card
-    $h = $script:History['SpeedTest']
+    # One test, one history record, two views: Network page and Overview card.
+    # Screenshots are published: they never show the line speed or server location.
+    $h = if ($ScreenshotDir) { $null } else { $script:History['SpeedTest'] }
     if (-not $h) { $script:Ui.OvSpeedSub.Text = T 'speed.never'; return }
     $when = Format-Ago $h.Time
     $d = $h.Detail
@@ -2016,10 +2036,40 @@ function Update-SpeedView {
     }
 }
 
+# Where each command lives: its name (language key) and the page that runs it
+$script:TaskInfo = @{
+    CheckHealth = @('health.check', 'NavHealth');  ScanHealth = @('health.scan', 'NavHealth')
+    SfcVerify   = @('health.verify', 'NavHealth'); WmiVerify  = @('health.wmi', 'NavHealth')
+    Apps        = @('health.apps', 'NavHealth');   RestoreHealth = @('health.repair', 'NavHealth')
+    SfcScan     = @('health.sfc', 'NavHealth');    ScanFile   = @('health.scanfile', 'NavHealth')
+    WmiSalvage  = @('health.wmifix', 'NavHealth'); ComponentCleanup = @('health.comp', 'NavHealth')
+    VolumeScan  = @('disks.fs', 'NavDisks');       Optimize   = @('disks.opt', 'NavDisks')
+    Chkdsk      = @('disks.chk', 'NavDisks');      Dns        = @('net.dns', 'NavNetwork')
+    Adapter     = @('net.adapter', 'NavNetwork');  Winsock    = @('net.winsock', 'NavNetwork')
+    IpReset     = @('net.ipreset', 'NavNetwork');  SpeedTest  = @('speed.title', 'NavNetwork')
+    GameCheck   = @('perf.game.title', 'NavPerformance')
+}
+
+function Show-Task([string]$Key) {
+    # Opens the page of a recommended command and scrolls its row into view
+    $info = $script:TaskInfo[$Key]
+    if (-not $info) { return }
+    $script:Ui[$info[1]].IsChecked = $true
+    $el = $script:Ui["Hist$Key"]
+    while ($el -and -not ($el -is [System.Windows.Controls.Border])) { $el = $el.Parent }
+    $script:ScrollTarget = $el
+    if ($el) {
+        # after the page has been laid out, otherwise there is nothing to scroll yet
+        [void]$script:Win.Dispatcher.BeginInvoke([System.Windows.Threading.DispatcherPriority]::Loaded,
+            [Action]{ if ($script:ScrollTarget) { $script:ScrollTarget.BringIntoView(); $script:ScrollTarget = $null } })
+    }
+}
+
 function Update-HistoryView {
     if (-not $script:Ui) { return }
     if ($null -eq $script:History) { $script:History = Read-RunHistory }
     $dueCount = 0
+    $tasks = New-Object System.Collections.ObjectModel.ObservableCollection[object]
     foreach ($k in $script:HistoryKeys) {
         $txt = $script:Ui["Hist$k"]; $dot = $script:Ui["HistDot$k"]
         if (-not $txt) { continue }
@@ -2032,8 +2082,18 @@ function Update-HistoryView {
                 else { T 'hist.last' $when }
         $txt.Text = if ($adv[1]) { "$($adv[1])   |   $last" } else { $last }
         $dot.Fill = Get-Brush $(switch ($adv[0]) { 'due' { 'Accent' } 'warn' { 'Warn' } 'ok' { 'Good' } default { 'Text3' } })
-        if ($adv[0] -in 'due', 'warn') { $dueCount++ }
+        if ($adv[0] -in 'due', 'warn') {
+            $dueCount++
+            # The Overview lists what it counts, so "2 tasks recommended" is never a mystery
+            $info = $script:TaskInfo[$k]
+            if ($info) {
+                $tasks.Add([pscustomobject]@{ Key = $k; Title = (T $info[0]); Detail = "$($adv[1])   |   $last"
+                                              Brush = (Get-Brush $(if ($adv[0] -eq 'warn') { 'Warn' } else { 'Accent' })) })
+            }
+        }
     }
+    $script:Ui.ListTasks.ItemsSource = $tasks
+    $script:Ui.CardTasks.Visibility = if ($tasks.Count -and $script:LastData) { 'Visible' } else { 'Collapsed' }
     Update-SpeedView
     if ($script:LastData -and $script:Ui.HeroSub) {
         $base = T 'overview.lastcheck' ((Get-Date).ToString('t', (Get-AppCulture)))
@@ -2043,13 +2103,15 @@ function Update-HistoryView {
 
 function Update-Network($net) {
     $script:Ui.TxtNetMain.Text = T "net.state.$($net.Status)"
-    $parts = @(); if ($net.Description) { $parts += $net.Description }; if ($net.IP) { $parts += $net.IP }; if ($net.Speed) { $parts += $net.Speed }
+    # Screenshots are published: they never show the real address
+    $ip = if ($ScreenshotDir -and $net.IP) { $net.IP -replace '\d+\.\d+$', 'x.x' } else { $net.IP }
+    $parts = @(); if ($net.Description) { $parts += $net.Description }; if ($ip) { $parts += $ip }; if ($net.Speed) { $parts += $net.Speed }
     $script:Ui.TxtNetSub.Text = $parts -join '  |  '
     $ok = ($net.Status -eq 'OK')
     $script:Ui.NetBadge.Background = Get-Brush ($(if ($ok) { 'GoodSoft' } else { 'BadSoft' }))
     $script:Ui.NetIcon.Foreground  = Get-Brush ($(if ($ok) { 'Good' } else { 'Bad' }))
     $script:Ui.TileNetValue.Text = if ($ok) { T 'tile.network.ok' } else { T 'tile.network.bad' }
-    $script:Ui.TileNetSub.Text = if ($net.IP) { $net.IP } else { T "net.state.$($net.Status)" }
+    $script:Ui.TileNetSub.Text = if ($ip) { $ip } else { T "net.state.$($net.Status)" }
 }
 
 # =============================================================================
@@ -2429,7 +2491,7 @@ function Register-Screenshots {
         if ((-not $script:LastData -or $script:Shared.Busy) -and $script:ShotWait -lt 150) { $script:ShotWait++; return }
         if ($script:ShotIndex -ge 0) {
             $pg = $script:ShotPages[$script:ShotIndex]
-            $name = '{0}-{1}-{2}.png' -f $script:Settings.Language, $script:Settings.Theme, ($pg -replace '^Nav', '').ToLowerInvariant()
+            $name = '{0}-{1}-{2}.png' -f $script:Settings.Language, $script:Settings.Theme, ($pg -replace '^Nav', '' -replace '[^A-Za-z0-9]', '-').ToLowerInvariant()
             Save-WindowImage (Join-Path $ScreenshotDir $name)
             # Text dump of the run-history lines, for automated checks
             $lines = foreach ($k in $script:HistoryKeys) { if ($script:Ui["Hist$k"]) { "{0,-17} {1}" -f $k, $script:Ui["Hist$k"].Text } }
@@ -2446,6 +2508,7 @@ function Register-Screenshots {
         $next = $script:ShotPages[$script:ShotIndex]
         if ($next -eq 'Live') { Show-LiveDemo }
         elseif ($next -eq 'PerfCheck') { $script:Ui.NavPerformance.IsChecked = $true; Start-GameCheck }
+        elseif ($next.StartsWith('Task:', [StringComparison]::Ordinal)) { Show-Task $next.Substring(5) }   # as the Show button does
         else { $script:Ui[$next].IsChecked = $true }
     })
     $script:Win.Add_ContentRendered({ $script:ShotTimer.Start() })
@@ -2749,6 +2812,10 @@ function Register-Handlers {
     $u.BtnGameCheck.Add_Click({ Start-GameCheck })
     $u.BtnGameOverview.Add_Click({ Start-GameCheck })
     $u.BtnGameDetails.Add_Click({ $script:Ui.NavPerformance.IsChecked = $true })
+    $u.ListTasks.AddHandler([System.Windows.Controls.Primitives.ButtonBase]::ClickEvent, [System.Windows.RoutedEventHandler]{
+        param($s, $e)
+        if ($e.OriginalSource -is [System.Windows.Controls.Button]) { Show-Task $e.OriginalSource.DataContext.Key }
+    })
     # Windows' own tools: Memory Diagnostic asks the user itself before restarting
     $u.BtnMemDiag.Add_Click({ try { Start-Process -FilePath (Get-SystemTool 'mdsched.exe') } catch { Add-Log $_.Exception.Message 'error' } })
     $u.BtnGameSettings.Add_Click({ try { Start-Process 'ms-settings:gaming-gamemode' } catch { Add-Log $_.Exception.Message 'error' } })

@@ -464,5 +464,7 @@
   "msg.game.issues": "Before you play: {0} thing(s) to look at",
   "rec.game": "Run before you start a game",
   "perf.game.ovsub": "Busy background programs, memory, a pending restart, power and free space. Takes a few seconds and changes nothing.",
-  "perf.game.details": "Details"
+  "perf.game.details": "Details",
+  "overview.tasks": "Recommended maintenance",
+  "overview.tasks.show": "Show"
 }

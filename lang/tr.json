@@ -464,5 +464,7 @@
   "msg.game.issues": "Oyun öncesi: bakılacak {0} konu var",
   "rec.game": "Oyuna başlamadan önce çalıştırın",
   "perf.game.ovsub": "Yoğun arka plan programları, bellek, bekleyen yeniden başlatma, güç ve boş alan. Birkaç saniye sürer, hiçbir şeyi değiştirmez.",
-  "perf.game.details": "Ayrıntılar"
+  "perf.game.details": "Ayrıntılar",
+  "overview.tasks": "Önerilen bakımlar",
+  "overview.tasks.show": "Göster"
 }
