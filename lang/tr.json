@@ -199,7 +199,7 @@
   "settings.theme.dark": "Koyu",
   "settings.about": "Hakkında",
   "settings.about.version": "WinCare {0}  |  {1}  |  derleme {2}",
-  "settings.about.desc": "Ücretsiz ve açık kaynak. Yalnızca Windows'un kendi araçlarını kullanır. Hiçbir veri gönderilmez: bağlantı kontrolleri yalnızca modeminize ve Cloudflare'e (1.1.1.1) ping atar, isteğe bağlı hız testi de siz başlattığınızda speed.cloudflare.com ile test verisi alışverişi yapar.",
+  "settings.about.desc": "Ücretsiz ve açık kaynak. Yalnızca Windows'un kendi araçlarını kullanır: üçüncü taraf hiçbir program, sürücü ya da bileşen içermez. Kurulum gerekmez, arka plan hizmeti yoktur: açın, işinizi yapın, kapatın. Kapattıktan sonra hiçbir parçası çalışmaya devam etmez. Kayıt defterine yazmaz; ayarlarını ve çalışma geçmişini %APPDATA%\\WinCare klasöründe iki küçük dosyada tutar. Hiçbir veri gönderilmez: bağlantı kontrolleri yalnızca modeminize ve Cloudflare'e (1.1.1.1) ping atar, isteğe bağlı hız testi de siz başlattığınızda speed.cloudflare.com ile test verisi alışverişi yapar.",
   "status.ready": "Hazır",
   "status.stop": "Durdur",
   "status.stopped": "Kullanıcı tarafından durduruldu",
@@ -462,5 +462,7 @@
   "msg.game.cpu": "Arka plan etkinliği ölçülüyor...",
   "msg.game.ok": "Oyun öncesi: engel yok",
   "msg.game.issues": "Oyun öncesi: bakılacak {0} konu var",
-  "rec.game": "Oyuna başlamadan önce çalıştırın"
+  "rec.game": "Oyuna başlamadan önce çalıştırın",
+  "perf.game.ovsub": "Yoğun arka plan programları, bellek, bekleyen yeniden başlatma, güç ve boş alan. Birkaç saniye sürer, hiçbir şeyi değiştirmez.",
+  "perf.game.details": "Ayrıntılar"
 }

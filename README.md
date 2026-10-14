@@ -4,7 +4,18 @@
 
 A clean, minimal maintenance tool for **Windows 11**. It checks your PC's health first and repairs only what needs repairing.
 
+**Türkçe:** [README.tr.md](README.tr.md)
+
 ![WinCare overview](docs/screenshots/en-dark-overview.png)
+
+## At a glance
+
+- **No third-party software** — no programs, drivers or components from anyone else; only tools that ship with Windows
+- **No installation** — extract the ZIP anywhere and run `WinCare.exe`
+- **No background service** — no service, scheduled task or startup entry. Open it, do what you need, close it; nothing keeps running after you close it
+- **No registry writes** — settings and run history are kept in two small files in `%APPDATA%\WinCare`
+- **Nothing is sent anywhere** — the connection checks only ping your router and Cloudflare (`1.1.1.1`); the speed test runs only when you start it
+- **Free and open source** (MIT), in English and Turkish
 
 ## Why WinCare
 
@@ -49,7 +60,8 @@ Run history is stored locally in `%APPDATA%\WinCare\history.json`.
 
 ## Features
 
-- **Overview** — one glance tells you whether your PC is healthy, plus a short list of anything that needs attention
+- **Overview** — one glance tells you whether your PC is healthy, plus a short list of anything that needs attention,
+  the last speed test and the *before you play* check
 - **Quick care** (1-2 min) — safe cleanup and an instant integrity check, no questions asked
 - **Deep care** (10-20 min) — adds DISM repair (only when needed), SFC, a read-only file system scan and SSD TRIM
 - **Cleanup** — every location is measured first; only what you select is removed

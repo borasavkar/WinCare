@@ -723,6 +723,22 @@ $script:XamlTemplate = @'
             </Grid>
           </Border>
 
+          <Border Style="{StaticResource CardBox}" Padding="20,16">
+            <Grid>
+              <Grid.ColumnDefinitions>
+                <ColumnDefinition Width="Auto"/><ColumnDefinition Width="*"/><ColumnDefinition Width="Auto"/><ColumnDefinition Width="Auto"/>
+              </Grid.ColumnDefinitions>
+              <TextBlock x:Name="OvGameIcon" Text="&#xE7FC;" Style="{StaticResource Icon}" FontSize="18"/>
+              <StackPanel Grid.Column="1" VerticalAlignment="Center" Margin="14,0,16,0">
+                <TextBlock Text="[[perf.game.title]]" Style="{StaticResource Body}" FontWeight="SemiBold"/>
+                <TextBlock x:Name="OvGameSub" Text="[[perf.game.ovsub]]" Style="{StaticResource Caption}" Margin="0,2,0,0"/>
+              </StackPanel>
+              <Button x:Name="BtnGameDetails" Grid.Column="2" Style="{StaticResource Subtle}" Content="[[perf.game.details]]"
+                      Margin="0,0,8,0" VerticalAlignment="Center" Visibility="Collapsed"/>
+              <Button x:Name="BtnGameOverview" Grid.Column="3" Style="{StaticResource Secondary}" Content="[[perf.game.start]]" VerticalAlignment="Center"/>
+            </Grid>
+          </Border>
+
           <Border Style="{StaticResource CardBox}">
             <Grid>
               <Grid.ColumnDefinitions><ColumnDefinition Width="*"/><ColumnDefinition Width="*"/><ColumnDefinition Width="*"/></Grid.ColumnDefinitions>
@@ -1502,7 +1518,7 @@ $script:ActionButtons = @('BtnQuick','BtnDeep','BtnClean','BtnRemeasure','BtnChe
                           'BtnApps','BtnAnalyze','BtnComp','BtnFsScan','BtnFsFix','BtnOptimize','BtnNetCheck','BtnDns',
                           'BtnAdapter','ThemeSystem','ThemeLight','ThemeDark','BtnVerify','BtnWmi','BtnWmiFix','BtnBrowse',
                           'BtnScanFile','BtnChkdsk','BtnWinsock','BtnIpReset','BtnRecovery','BtnSpeed','BtnSpeedOverview','ChkModeF','ChkModeR','ChkModeFrx','TxtScanPath',
-                          'BtnMemCheck','BtnGameCheck','ListMemTop','ListGameApps')
+                          'BtnMemCheck','BtnGameCheck','ListMemTop','ListGameApps','BtnGameOverview')
 
 function Get-Brush([string]$Key) { $script:Win.FindResource($Key) }
 
@@ -2138,6 +2154,10 @@ function Update-GameView($g) {
     if ($g.Ok) { $u.TxtGameMain.Text = T 'perf.game.ok'; Set-Badge $u.GameBadge $u.GameIcon 'good' }
     else { $u.TxtGameMain.Text = T 'perf.game.issues' $g.Warnings; Set-Badge $u.GameBadge $u.GameIcon 'warn' }
     $u.TxtGameSub.Text = T 'perf.game.checked' ($g.Time.ToString('t', $c))
+    # Same check, two views: the Overview card shows the verdict, Details opens the full list
+    $u.OvGameSub.Text = "$($u.TxtGameMain.Text)   |   $($u.TxtGameSub.Text)"
+    $u.OvGameIcon.Foreground = Get-Brush $(if ($g.Ok) { 'Good' } else { 'Warn' })
+    $u.BtnGameDetails.Visibility = 'Visible'
     $u.ListGameChecks.ItemsSource = $items
 
     $apps = New-Object System.Collections.ObjectModel.ObservableCollection[object]
@@ -2727,6 +2747,8 @@ function Register-Handlers {
 
     $u.BtnMemCheck.Add_Click({ Start-MemoryCheck })
     $u.BtnGameCheck.Add_Click({ Start-GameCheck })
+    $u.BtnGameOverview.Add_Click({ Start-GameCheck })
+    $u.BtnGameDetails.Add_Click({ $script:Ui.NavPerformance.IsChecked = $true })
     # Windows' own tools: Memory Diagnostic asks the user itself before restarting
     $u.BtnMemDiag.Add_Click({ try { Start-Process -FilePath (Get-SystemTool 'mdsched.exe') } catch { Add-Log $_.Exception.Message 'error' } })
     $u.BtnGameSettings.Add_Click({ try { Start-Process 'ms-settings:gaming-gamemode' } catch { Add-Log $_.Exception.Message 'error' } })
