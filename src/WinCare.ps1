@@ -1938,6 +1938,16 @@ function Get-Advice([string]$Key) {
     }
     $data = $script:LastData
     $netBad = ($data -and $data.Network -and $data.Network.Status -ne 'OK')
+    # A repair also performs the matching check: sfc /scannow verifies every file
+    # (= sfc /verifyonly), DISM /RestoreHealth scans the store (= /ScanHealth).
+    # A newer successful repair (e.g. from Deep care) therefore satisfies the check.
+    $coveredBy = @{ SfcVerify = 'SfcScan'; ScanHealth = 'RestoreHealth' }
+    if ($coveredBy.ContainsKey($Key)) {
+        $sup = $script:History[$coveredBy[$Key]]
+        if ($sup -and $sup.Ok -eq $true -and (-not $h -or $sup.Time -gt $h.Time) -and ((Get-Date) - $sup.Time).TotalDays -le 30) {
+            return @('ok', (T 'rec.coveredBy' (T $script:TaskInfo[$coveredBy[$Key]][0]) (Format-Ago $sup.Time)))
+        }
+    }
     $checks = 'CheckHealth', 'ScanHealth', 'SfcVerify', 'WmiVerify', 'VolumeScan'
     if ($checks -contains $Key -and $h -and $h.Ok -eq $false) { return @('warn', (T 'rec.problem')) }
 

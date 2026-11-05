@@ -466,5 +466,6 @@
   "perf.game.ovsub": "Busy background programs, memory, a pending restart, power and free space. Takes a few seconds and changes nothing.",
   "perf.game.details": "Details",
   "overview.tasks": "Recommended maintenance",
-  "overview.tasks.show": "Show"
+  "overview.tasks.show": "Show",
+  "rec.coveredBy": "Not needed - {0} ran {1} and included this check"
 }

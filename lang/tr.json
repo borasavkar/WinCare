@@ -466,5 +466,6 @@
   "perf.game.ovsub": "Yoğun arka plan programları, bellek, bekleyen yeniden başlatma, güç ve boş alan. Birkaç saniye sürer, hiçbir şeyi değiştirmez.",
   "perf.game.details": "Ayrıntılar",
   "overview.tasks": "Önerilen bakımlar",
-  "overview.tasks.show": "Göster"
+  "overview.tasks.show": "Göster",
+  "rec.coveredBy": "Gerekmiyor - {0} {1} çalıştı ve bu kontrolü de yaptı"
 }
