@@ -2687,14 +2687,19 @@ function Register-Handlers {
     })
     $u.BtnAnalyze.Add_Click({
         Invoke-Background -Title (T 'msg.analyze.running') -Work { param($n,$p) Get-ComponentStoreAnalysis -Notify $n } -Done {
-            param($r) $script:Ui.TxtCompState.Text = (@($r) -join "`n")
+            param($r)
+            $lines = @($r | Where-Object { $_ })
+            # DISM often keeps reporting a few reclaimable packages that cleanup cannot remove
+            $script:Ui.TxtCompState.Text = if ($lines.Count) { ($lines -join "`n") + "`n`n" + (T 'health.comp.note') } else { '' }
         }
     })
     $u.BtnComp.Add_Click({
         Confirm-Action (T 'comp.confirm.title') (T 'comp.confirm.text') (T 'action.clean') {
             Invoke-Background -History 'ComponentCleanup' -Title (T 'msg.comp.running') -Work { param($n,$p) Invoke-ComponentCleanup -Notify $n } -Done {
                 param($r) if (-not $r) { return }
-                $script:Ui.TxtCompState.Text = if ($r.Ok) { T 'msg.comp.ok' (Format-Size $r.Bytes) } else { T 'msg.comp.bad' $r.Code }
+                $script:Ui.TxtCompState.Text = if (-not $r.Ok) { T 'msg.comp.bad' $r.Code }
+                                               elseif ($r.Bytes -ge 1MB) { T 'msg.comp.ok' (Format-Size $r.Bytes) }
+                                               else { T 'msg.comp.none' }
             }
         }
     })

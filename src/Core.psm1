@@ -683,8 +683,12 @@ function Invoke-ComponentCleanup {
     param([scriptblock]$Notify)
     $before = Get-FreeSpace
     $r = Invoke-WindowsTool $script:Dism @('/Online','/Cleanup-Image','/StartComponentCleanup') -Notify $Notify
+    # Free-space difference of the drive: Windows Update or other apps may write
+    # or delete at the same time, so it is reported as such, never as "freed by cleanup".
     $gain = [math]::Max(0, (Get-FreeSpace) - $before)
-    if ($r.Ok) { Send-Progress $Notify (T 'msg.comp.ok' (Format-Size $gain)) 'ok' } else { Send-Progress $Notify (T 'msg.comp.bad' $r.ExitCode) 'warn' }
+    if (-not $r.Ok) { Send-Progress $Notify (T 'msg.comp.bad' $r.ExitCode) 'warn' }
+    elseif ($gain -ge 1MB) { Send-Progress $Notify (T 'msg.comp.ok' (Format-Size $gain)) 'ok' }
+    else { Send-Progress $Notify (T 'msg.comp.none') 'ok' }
     [pscustomobject]@{ Ok = $r.Ok; Code = $r.ExitCode; Bytes = $gain }
 }
 
