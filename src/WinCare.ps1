@@ -230,6 +230,18 @@ public static class WcShell {
 # Own taskbar identity: WinCare is not grouped with other PowerShell windows
 try { [void][WcShell]::SetCurrentProcessExplicitAppUserModelID('borasavkar.WinCare') } catch { }
 
+function Reset-JumpList {
+    # Windows PowerShell 5.1 adds its own "Run as Administrator" task to the
+    # jump list of its process, in the background, shortly after start. Under
+    # WinCare's taskbar identity that task does not work ("the item is not
+    # available"). An empty WinCare jump list, applied after it, replaces it.
+    try {
+        $jl = New-Object System.Windows.Shell.JumpList
+        $jl.ShowFrequentCategory = $false; $jl.ShowRecentCategory = $false
+        $jl.Apply()
+    } catch { }
+}
+
 if (-not ('WcDwm' -as [type])) {
     Add-Type -TypeDefinition @'
 using System; using System.Runtime.InteropServices;
@@ -2873,6 +2885,18 @@ while ($script:Rebuild) {
     if ($script:LastData) { Update-FromRefresh $script:LastData }
     if ($script:LastGame) { Update-GameView $script:LastGame }
     $script:Win.Add_ContentRendered({ if (-not $script:LastData) { Start-Refresh } })
+    if (-not $script:JumpListTimer) {
+        # twice (after 3 and 15 seconds): PowerShell writes its list at an unknown moment
+        $script:JumpListTicks = 0
+        $script:JumpListTimer = New-Object System.Windows.Threading.DispatcherTimer
+        $script:JumpListTimer.Interval = [TimeSpan]::FromSeconds(3)
+        $script:JumpListTimer.Add_Tick({
+            Reset-JumpList
+            $script:JumpListTicks++
+            if ($script:JumpListTicks -ge 2) { $script:JumpListTimer.Stop() } else { $script:JumpListTimer.Interval = [TimeSpan]::FromSeconds(12) }
+        })
+        $script:JumpListTimer.Start()
+    }
     if ($ScreenshotDir) { Register-Screenshots }
     [void]$script:Win.ShowDialog()
 }
