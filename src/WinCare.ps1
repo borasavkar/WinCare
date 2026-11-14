@@ -726,6 +726,7 @@ $script:XamlTemplate = @'
           </Border>
 
           <Border Style="{StaticResource CardBox}" Padding="20,16">
+            <StackPanel>
             <Grid>
               <Grid.ColumnDefinitions>
                 <ColumnDefinition Width="Auto"/><ColumnDefinition Width="*"/><ColumnDefinition Width="Auto"/><ColumnDefinition Width="Auto"/>
@@ -754,6 +755,16 @@ $script:XamlTemplate = @'
               </StackPanel>
               <Button x:Name="BtnSpeedOverview" Grid.Column="3" Style="{StaticResource Secondary}" Content="[[speed.start]]" VerticalAlignment="Center"/>
             </Grid>
+            <!-- network adapter health, one line -->
+            <Border BorderBrush="{StaticResource StrokeSoft}" BorderThickness="0,1,0,0" Margin="0,14,0,0" Padding="0,12,0,0">
+              <Grid>
+                <Grid.ColumnDefinitions><ColumnDefinition Width="Auto"/><ColumnDefinition Width="*"/><ColumnDefinition Width="Auto"/></Grid.ColumnDefinitions>
+                <TextBlock x:Name="OvAdapterIcon" Text="&#xE839;" Style="{StaticResource Icon}" FontSize="15"/>
+                <TextBlock x:Name="OvAdapterLine" Grid.Column="1" Text="..." Style="{StaticResource Caption}" FontSize="12.5" VerticalAlignment="Center" Margin="17,0,16,0"/>
+                <Button x:Name="BtnAdapterDetails" Grid.Column="2" Style="{StaticResource Subtle}" Content="[[perf.game.details]]" VerticalAlignment="Center"/>
+              </Grid>
+            </Border>
+            </StackPanel>
           </Border>
 
           <Border Style="{StaticResource CardBox}" Padding="20,16">
@@ -1188,6 +1199,43 @@ $script:XamlTemplate = @'
               <Button x:Name="BtnNetCheck" Grid.Column="2" Style="{StaticResource Secondary}" Content="[[action.recheck]]" VerticalAlignment="Center"/>
             </Grid>
           </Border>
+          <Border x:Name="CardAdapter" Style="{StaticResource CardBox}" Padding="24">
+            <StackPanel>
+              <Grid>
+                <Grid.ColumnDefinitions><ColumnDefinition Width="*"/><ColumnDefinition Width="Auto"/></Grid.ColumnDefinitions>
+                <StackPanel Margin="0,0,16,0">
+                  <TextBlock Text="[[net.health.title]]" Style="{StaticResource H2}"/>
+                  <TextBlock Text="[[net.health.desc]]" Style="{StaticResource Caption}" Margin="0,4,0,0"/>
+                </StackPanel>
+                <Button x:Name="BtnAdapterCheck" Grid.Column="1" Style="{StaticResource Secondary}" Content="[[action.recheck]]" VerticalAlignment="Top"/>
+              </Grid>
+              <Grid Margin="0,20,0,16">
+                <Grid.ColumnDefinitions><ColumnDefinition Width="*"/><ColumnDefinition Width="*"/><ColumnDefinition Width="*"/><ColumnDefinition Width="*"/></Grid.ColumnDefinitions>
+                <StackPanel Grid.Column="0">
+                  <TextBlock Text="[[net.health.rx]]" Style="{StaticResource Caption}"/>
+                  <TextBlock x:Name="AdpRx" Text="-" FontFamily="{StaticResource Display}" FontSize="20" FontWeight="SemiBold" Foreground="{StaticResource Text}" Margin="0,6,0,2"/>
+                  <TextBlock x:Name="AdpRxSub" Text="" Style="{StaticResource Caption}"/>
+                </StackPanel>
+                <StackPanel Grid.Column="1">
+                  <TextBlock Text="[[net.health.tx]]" Style="{StaticResource Caption}"/>
+                  <TextBlock x:Name="AdpTx" Text="-" FontFamily="{StaticResource Display}" FontSize="20" FontWeight="SemiBold" Foreground="{StaticResource Text}" Margin="0,6,0,2"/>
+                  <TextBlock x:Name="AdpTxSub" Text="" Style="{StaticResource Caption}"/>
+                </StackPanel>
+                <StackPanel Grid.Column="2">
+                  <TextBlock Text="[[net.health.err]]" Style="{StaticResource Caption}"/>
+                  <TextBlock x:Name="AdpErr" Text="-" FontFamily="{StaticResource Display}" FontSize="20" FontWeight="SemiBold" Foreground="{StaticResource Text}" Margin="0,6,0,2"/>
+                  <TextBlock x:Name="AdpErrSub" Text="" Style="{StaticResource Caption}"/>
+                </StackPanel>
+                <StackPanel Grid.Column="3">
+                  <TextBlock Text="[[net.health.disc]]" Style="{StaticResource Caption}"/>
+                  <TextBlock x:Name="AdpDisc" Text="-" FontFamily="{StaticResource Display}" FontSize="20" FontWeight="SemiBold" Foreground="{StaticResource Text}" Margin="0,6,0,2"/>
+                  <TextBlock x:Name="AdpDiscSub" Text="" Style="{StaticResource Caption}"/>
+                </StackPanel>
+              </Grid>
+              <ItemsControl x:Name="ListAdapterChecks" ItemTemplate="{StaticResource CheckRow}"/>
+              <TextBlock x:Name="TxtAdapterInfo" Text="" Style="{StaticResource CaptionAuto}" Margin="0,6,0,0"/>
+            </StackPanel>
+          </Border>
           <Border Style="{StaticResource CardBox}" Padding="24">
             <StackPanel>
               <Grid>
@@ -1551,7 +1599,7 @@ $script:ActionButtons = @('BtnQuick','BtnDeep','BtnClean','BtnRemeasure','BtnChe
                           'BtnApps','BtnAnalyze','BtnComp','BtnFsScan','BtnFsFix','BtnOptimize','BtnNetCheck','BtnDns',
                           'BtnAdapter','ThemeSystem','ThemeLight','ThemeDark','BtnVerify','BtnWmi','BtnWmiFix','BtnBrowse',
                           'BtnScanFile','BtnChkdsk','BtnWinsock','BtnIpReset','BtnRecovery','BtnSpeed','BtnSpeedOverview','ChkModeF','ChkModeR','ChkModeFrx','TxtScanPath',
-                          'BtnMemCheck','BtnGameCheck','ListMemTop','ListGameApps','BtnGameOverview')
+                          'BtnMemCheck','BtnGameCheck','ListMemTop','ListGameApps','BtnGameOverview','BtnAdapterCheck')
 
 function Get-Brush([string]$Key) { $script:Win.FindResource($Key) }
 
@@ -1820,8 +1868,9 @@ function Update-FromRefresh($Data) {
     # Network
     Update-Network $net
 
-    # Memory (Performance page)
+    # Memory (Performance page) and network adapter (Overview line + Network page)
     Update-MemoryView $Data.Memory
+    Update-AdapterView $Data.Adapter
 
     # Attention
     $att = New-Object System.Collections.ObjectModel.ObservableCollection[object]
@@ -1835,6 +1884,7 @@ function Update-FromRefresh($Data) {
     if ($sys.Uptime.TotalDays -gt 7) { & $add 0xE946 'Text3' (T 'att.uptime' ([int]$sys.Uptime.TotalDays)) (T 'att.uptime.d') }
     if ($sec.UnexpectedShutdowns -gt 0) { & $add 0xE946 'Warn' (T 'att.shutdown' $sec.UnexpectedShutdowns) (T 'att.shutdown.d') }
     if ($Data.Memory -and $Data.Memory.Pressure) { & $add 0xE7BA 'Warn' (T 'perf.mem.bad') (Get-MemPressureText $Data.Memory) }
+    if ($Data.Adapter -and $Data.Adapter.Problem) { & $add 0xE7BA 'Warn' (T 'net.health.att' $Data.Adapter.Name) $script:Ui.OvAdapterLine.Text }
     $script:Ui.ListAttention.ItemsSource = $att
     $script:Ui.CardAttention.Visibility = if ($att.Count) { 'Visible' } else { 'Collapsed' }
 
@@ -2253,6 +2303,55 @@ function Update-GameView($g) {
     $u.GameAppsPanel.Visibility = if ($apps.Count) { 'Visible' } else { 'Collapsed' }
 }
 
+function Update-AdapterView($a) {
+    # Network adapter health: one line on the Overview, the full card on the Network page
+    if (-not $a -or -not $script:Ui) { return }
+    if ($script:LastData -and $script:LastData.PSObject.Properties['Adapter']) { $script:LastData.Adapter = $a }
+    $u = $script:Ui; $c = Get-AppCulture
+    $n = { param($x) ([double]$x).ToString('N0', $c) }
+    if (-not $a.Found) {
+        $u.OvAdapterLine.Text = T 'net.health.none'; $u.OvAdapterIcon.Foreground = Get-Brush 'Text3'
+        foreach ($k in 'AdpRx', 'AdpTx', 'AdpErr', 'AdpDisc') { $u[$k].Text = '-'; $u["${k}Sub"].Text = '' }
+        $u.ListAdapterChecks.ItemsSource = $null
+        $u.TxtAdapterInfo.Text = T 'net.health.none'
+        return
+    }
+    $errs = $a.RxErrors + $a.TxErrors
+    $discs = $a.RxDiscards + $a.TxDiscards
+    $errTitle = if ($errs -gt 0) { T 'net.health.errors.bad' (& $n $errs) } else { T 'net.health.errors.ok' }
+    $u.OvAdapterLine.Text = T 'net.health.ov' $a.Name (Format-LinkSpeed $a.LinkBps) $errTitle
+    $u.OvAdapterIcon.Foreground = Get-Brush $(if ($a.Problem) { 'Warn' } else { 'Good' })
+
+    $u.AdpRx.Text = Format-Size $a.RxBytes;  $u.AdpRxSub.Text = T 'net.health.packets' (& $n $a.RxPackets)
+    $u.AdpTx.Text = Format-Size $a.TxBytes;  $u.AdpTxSub.Text = T 'net.health.packets' (& $n $a.TxPackets)
+    $u.AdpErr.Text = & $n $errs;             $u.AdpErrSub.Text = T 'net.health.split' (& $n $a.RxErrors) (& $n $a.TxErrors)
+    $u.AdpErr.Foreground = Get-Brush $(if ($errs -gt 0) { 'Warn' } else { 'Text' })
+    $u.AdpDisc.Text = & $n $discs;           $u.AdpDiscSub.Text = T 'net.health.split' (& $n $a.RxDiscards) (& $n $a.TxDiscards)
+
+    $items = New-Object System.Collections.ObjectModel.ObservableCollection[object]
+    $add = {
+        param([string]$Kind, [string]$Title, [string]$Detail)
+        $k = @{ ok = @(0xE73E, 'Good'); warn = @(0xE7BA, 'Warn'); info = @(0xE946, 'Text3') }[$Kind]
+        $items.Add([pscustomobject]@{ Glyph = [string][char]$k[0]; Brush = (Get-Brush $k[1]); Title = $Title; Detail = $Detail })
+    }
+    if ($errs -gt 0) { & $add 'warn' $errTitle (T 'net.health.errors.bad.d' (& $n $a.RxErrors) (& $n $a.TxErrors)) }
+    else { & $add 'ok' $errTitle (T 'net.health.errors.ok.d' (& $n ($a.RxPackets + $a.TxPackets))) }
+    if ($a.FullDuplex -eq $false) { & $add 'warn' (T 'net.health.duplex.bad') (T 'net.health.duplex.bad.d') }
+    elseif ($a.FullDuplex -eq $true) { & $add 'ok' (T 'net.health.duplex.ok') '' }
+    $link = Format-LinkSpeed $a.LinkBps
+    if ($a.MaxBps -and $a.MaxBps -gt $a.LinkBps) { & $add 'info' (T 'net.health.speed' $link) (T 'net.health.speed.max.d' (Format-LinkSpeed $a.MaxBps) $link) }
+    else { & $add 'ok' (T 'net.health.speed' $link) '' }
+    if ($discs -gt 0) { & $add 'info' (T 'net.health.discards' (& $n $discs)) (T 'net.health.discards.d') }
+    $u.ListAdapterChecks.ItemsSource = $items
+
+    $date = if ($a.DriverDate) { $a.DriverDate.ToString('d', $c) } else { '-' }
+    $u.TxtAdapterInfo.Text = T 'net.health.info' $a.Description $a.Driver $date ($a.Time.ToString('t', $c))
+}
+
+function Start-AdapterCheck {
+    Invoke-Background -Title (T 'net.health.running') -Work { param($n, $p) Get-NetworkAdapterHealth } -Done { param($r) $x = @($r)[-1]; if ($x) { Update-AdapterView $x } }
+}
+
 function Start-MemoryCheck {
     Invoke-Background -Title (T 'perf.mem.running') -Work { param($n, $p) Get-MemoryStatus } -Done { param($r) if ($r) { Update-MemoryView @($r)[-1] } }
 }
@@ -2315,6 +2414,7 @@ $script:RefreshWork = {
         LastUpdate  = Get-LastUpdateDate
         WinCompTask = Get-ComponentCleanupTask
         Memory   = Get-MemoryStatus
+        Adapter  = Get-NetworkAdapterHealth
     }
 }
 
@@ -2841,6 +2941,13 @@ function Register-Handlers {
     $u.BtnGameCheck.Add_Click({ Start-GameCheck })
     $u.BtnGameOverview.Add_Click({ Start-GameCheck })
     $u.BtnGameDetails.Add_Click({ $script:Ui.NavPerformance.IsChecked = $true })
+    $u.BtnAdapterCheck.Add_Click({ Start-AdapterCheck })
+    $u.BtnAdapterDetails.Add_Click({
+        $script:Ui.NavNetwork.IsChecked = $true
+        $script:ScrollTarget = $script:Ui.CardAdapter
+        [void]$script:Win.Dispatcher.BeginInvoke([System.Windows.Threading.DispatcherPriority]::Loaded,
+            [Action]{ if ($script:ScrollTarget) { $script:ScrollTarget.BringIntoView(); $script:ScrollTarget = $null } })
+    })
     $u.ListTasks.AddHandler([System.Windows.Controls.Primitives.ButtonBase]::ClickEvent, [System.Windows.RoutedEventHandler]{
         param($s, $e)
         if ($e.OriginalSource -is [System.Windows.Controls.Button]) { Show-Task $e.OriginalSource.DataContext.Key }

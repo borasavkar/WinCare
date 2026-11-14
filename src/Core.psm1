@@ -841,6 +841,60 @@ function Test-Network {
     $r
 }
 
+function Get-NetworkAdapterHealth {
+    <#
+        Read-only health of the adapter that carries the internet connection:
+        the adapter's own counters (errors, discards, traffic), the negotiated
+        link speed against the fastest the adapter supports, duplex and driver.
+        Counters start at zero when the adapter starts (usually the last restart).
+    #>
+    $r = [pscustomobject]@{
+        Found = $false; Name = ''; Description = ''; LinkBps = [double]0; MaxBps = $null; FullDuplex = $null
+        RxBytes = [double]0; TxBytes = [double]0; RxPackets = [double]0; TxPackets = [double]0
+        RxErrors = [double]0; TxErrors = [double]0; RxDiscards = [double]0; TxDiscards = [double]0
+        Driver = ''; DriverDate = $null; Problem = $false; Time = Get-Date
+    }
+    try {
+        $up = @(Get-NetAdapter -Physical -ErrorAction Stop | Where-Object Status -eq 'Up')
+        if (-not $up.Count) { return $r }
+        # Prefer the adapter that has the default gateway (the one the internet uses)
+        $gw = @(Get-NetIPConfiguration -ErrorAction SilentlyContinue | Where-Object { $_.IPv4DefaultGateway } | ForEach-Object { $_.InterfaceIndex })
+        $a = @($up | Where-Object { $gw -contains $_.ifIndex }) + $up | Select-Object -First 1
+        $r.Found = $true; $r.Name = $a.Name; $r.Description = $a.InterfaceDescription
+        $r.LinkBps = [double]$a.Speed; $r.FullDuplex = $a.FullDuplex
+        $r.Driver = [string]$a.DriverVersion
+        if ($a.DriverDate) { try { $r.DriverDate = [datetime]$a.DriverDate } catch { } }
+        $s = Get-NetAdapterStatistics -Name $a.Name -ErrorAction Stop
+        $r.RxBytes = [double]$s.ReceivedBytes; $r.TxBytes = [double]$s.SentBytes
+        $r.RxPackets = [double]$s.ReceivedUnicastPackets + [double]$s.ReceivedMulticastPackets + [double]$s.ReceivedBroadcastPackets
+        $r.TxPackets = [double]$s.SentUnicastPackets + [double]$s.SentMulticastPackets + [double]$s.SentBroadcastPackets
+        $r.RxErrors = [double]$s.ReceivedPacketErrors; $r.TxErrors = [double]$s.OutboundPacketErrors
+        $r.RxDiscards = [double]$s.ReceivedDiscardedPackets; $r.TxDiscards = [double]$s.OutboundDiscardedPackets
+        # Fastest supported speed, from the "Speed & Duplex" choices. The names are
+        # localized, but the numbers and units (Mbps / Gbps) are not.
+        try {
+            $sd = Get-NetAdapterAdvancedProperty -Name $a.Name -RegistryKeyword '*SpeedDuplex' -ErrorAction Stop
+            $max = [double]0
+            foreach ($v in @($sd.ValidDisplayValues)) {
+                foreach ($m in [regex]::Matches([string]$v, '(\d+(?:[.,]\d+)?)\s*([GM])b')) {
+                    $n = [double]::Parse($m.Groups[1].Value.Replace(',', '.'), [Globalization.CultureInfo]::InvariantCulture)
+                    $bps = if ($m.Groups[2].Value -eq 'G') { $n * 1e9 } else { $n * 1e6 }
+                    if ($bps -gt $max) { $max = $bps }
+                }
+            }
+            if ($max -gt 0) { $r.MaxBps = $max }
+        } catch { }
+    } catch { }
+    $r.Problem = ($r.RxErrors + $r.TxErrors -gt 0) -or ($r.FullDuplex -eq $false)
+    $r
+}
+
+function Format-LinkSpeed {
+    param([double]$Bps)
+    if ($Bps -ge 1e9) { return (($Bps / 1e9).ToString('0.#', $script:Culture) + ' Gbps') }
+    (($Bps / 1e6).ToString('0', $script:Culture) + ' Mbps')
+}
+
 function Measure-Ping {
     <#
         ICMP round trips to 1.1.1.1 (Cloudflare's own network), in ms. This is what
@@ -1447,7 +1501,7 @@ Export-ModuleMember -Function @(
     'Test-VolumeHealth','Repair-VolumeSpotFix','Get-OptimizeStatus','Invoke-Optimize',
     'Test-Network','Clear-DnsCache','Restart-NetworkAdapter',
     'Invoke-WindowsTool','Get-PercentFromText','Send-Live','Get-ProtectedFragments','Invoke-SfcScanFile','Test-WmiRepository','Repair-WmiRepository',
-    'Invoke-Chkdsk','Reset-NetworkStack','Test-InternetSpeed','Format-Mbps','Measure-Ping','Get-PingStats',
+    'Invoke-Chkdsk','Reset-NetworkStack','Test-InternetSpeed','Format-Mbps','Measure-Ping','Get-NetworkAdapterHealth','Format-LinkSpeed','Get-PingStats',
     'Get-MemoryStatus','Get-CpuSample','Get-GamingReadiness','Close-AppGracefully',
     'Get-DataDirectory','Get-HistoryFileName','Get-RunHistoryPath','Read-RunHistory','Write-RunRecord','Get-LastUpdateDate','Get-ComponentCleanupTask'
 )

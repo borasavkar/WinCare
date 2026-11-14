@@ -73,6 +73,8 @@ Run history is stored in the `data` folder next to `WinCare.exe`, one file per c
 - **Disks** — free space, SMART health (temperature, wear, errors), read-only file system scan,
   `chkdsk /f` `/r` `/f /r /x`, media-aware optimization (TRIM for SSD, defrag for HDD only)
 - **Internet speed test** — on the Overview and Network pages: download, upload, ping and jitter (4 parallel connections, warm-up ignored, ping via ICMP); the last result is kept, and a failed attempt never hides it
+- **Network adapter health** — packet errors and discards from the adapter's own counters, the connected link speed
+  against the fastest the adapter supports, duplex and driver version; a one-line summary on the Overview
 - **Network** — connection diagnosis, `ipconfig /flushdns`, adapter restart,
   `netsh winsock reset` and `netsh int ip reset` (opt-in, with warnings)
 - **Performance** — an honest memory check: what is really available, what programs have reserved, cache,

@@ -27,6 +27,8 @@
   Windows Update sonrası eski dosyaların temizliği ve açılış sorunları için kurtarma ortamı rehberi
 - **Diskler** — boş alan, SMART sağlık bilgisi (sıcaklık, aşınma, hatalar), salt okunur dosya sistemi taraması,
   `chkdsk /f` `/r` `/f /r /x`. SSD'ler asla birleştirilmez, yalnızca TRIM uygulanır
+- **Ağ bağdaştırıcısı sağlığı** — bağdaştırıcının kendi sayaçlarından hatalı ve atılan paketler, bağlantı hızının
+  bağdaştırıcının desteklediği en yüksek hızla karşılaştırması, çift yönlülük ve sürücü sürümü; Genel bakış'ta tek satırlık özet
 - **Ağ** — bağlantı teşhisi, `ipconfig /flushdns`, ağ bağdaştırıcısını yeniden başlatma, internet hız testi;
   `netsh winsock reset` ve `netsh int ip reset` yalnızca siz seçerseniz, uyarıyla çalışır
 - **Performans** — bellek kontrolü: gerçekte ne kadar bellek kullanılabilir, programlar ne kadar ayırmış, önbellek,
