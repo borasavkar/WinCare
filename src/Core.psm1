@@ -889,6 +889,97 @@ function Get-NetworkAdapterHealth {
     $r
 }
 
+function Get-NetworkDiagnostics {
+    <#
+        Read-only detailed network check:
+          - ping and packet loss to the router and to the internet: loss already
+            at the router means the home network, loss only beyond it means the
+            provider or further
+          - DNS servers of the connection and how fast they answer (a few
+            well-known names, asked directly so the local cache is not used)
+          - proxy settings: per user (apps, browsers) and WinHTTP (system services)
+          - power saving features enabled on the adapter
+        Nothing is changed.
+    #>
+    param([int]$PingCount = 20, [scriptblock]$Notify)
+    $r = [pscustomobject]@{
+        Adapter = ''; Gateway = ''; GatewayPing = $null; InternetPing = $null
+        Dns = @(); DnsV6 = @(); ProxyUser = ''; ProxyPac = ''; ProxyWinHttp = ''; PowerSaving = @(); TurnOff = $false
+        Problems = 0; Ok = $true; Time = Get-Date
+    }
+    $cfg = $null
+    try { $cfg = Get-NetIPConfiguration -ErrorAction Stop | Where-Object { $_.IPv4DefaultGateway } | Select-Object -First 1 } catch { }
+    if ($cfg) { $r.Adapter = [string]$cfg.InterfaceAlias; $r.Gateway = [string](@($cfg.IPv4DefaultGateway)[0].NextHop) }
+
+    $measure = {
+        param([string]$Target, [string]$Title)
+        Send-Progress $Notify $Title 'step'
+        $s = Measure-Ping -Target $Target -Count $PingCount -TimeoutMs 1000 -Notify $Notify -Title $Title
+        $st = Get-PingStats $s
+        [pscustomobject]@{ Target = $Target; Sent = $PingCount; Received = $s.Count; Lost = $PingCount - $s.Count
+                           LossPercent = [int][math]::Round(($PingCount - $s.Count) / $PingCount * 100); PingMs = $st.PingMs; JitterMs = $st.JitterMs }
+    }
+    if ($r.Gateway) { $r.GatewayPing = & $measure $r.Gateway (T 'msg.netdiag.gw') }
+    $r.InternetPing = & $measure '1.1.1.1' (T 'msg.netdiag.inet')
+
+    Send-Progress $Notify (T 'msg.netdiag.dns') 'step'
+    if ($cfg) {
+        try {
+            foreach ($srv in @((Get-DnsClientServerAddress -InterfaceIndex $cfg.InterfaceIndex -AddressFamily IPv4 -ErrorAction Stop).ServerAddresses)) {
+                $times = New-Object System.Collections.Generic.List[double]
+                foreach ($name in 'www.microsoft.com', 'www.google.com', 'www.wikipedia.org') {
+                    $sw = [Diagnostics.Stopwatch]::StartNew()
+                    try { $null = Resolve-DnsName -Name $name -Server $srv -DnsOnly -NoHostsFile -QuickTimeout -ErrorAction Stop; $times.Add([double]$sw.ElapsedMilliseconds) } catch { }
+                }
+                $sorted = @($times | Sort-Object)
+                $r.Dns += [pscustomobject]@{ Server = $srv; Ok = ($times.Count -gt 0)
+                                             Ms = $(if ($sorted.Count) { [int]$sorted[[int][math]::Floor($sorted.Count / 2)] } else { $null }) }
+            }
+        } catch { }
+        try { $r.DnsV6 = @((Get-DnsClientServerAddress -InterfaceIndex $cfg.InterfaceIndex -AddressFamily IPv6 -ErrorAction Stop).ServerAddresses | Where-Object { $_ }) } catch { }
+    }
+
+    # Proxy for apps and browsers (WinINET, per user; WinCare runs as the signed-in user)
+    try {
+        $ie = Get-ItemProperty 'HKCU:\Software\Microsoft\Windows\CurrentVersion\Internet Settings' -ErrorAction Stop
+        if ($ie.PSObject.Properties['ProxyEnable'] -and [int]$ie.ProxyEnable -eq 1 -and $ie.ProxyServer) { $r.ProxyUser = [string]$ie.ProxyServer }
+        if ($ie.PSObject.Properties['AutoConfigURL'] -and $ie.AutoConfigURL) { $r.ProxyPac = [string]$ie.AutoConfigURL }
+    } catch { }
+    # System proxy for services (WinHTTP): DWORD version, DWORD counter, DWORD flags
+    # (bit 2 = proxy), DWORD length + ANSI proxy list, then the bypass list
+    try {
+        $b = (Get-ItemProperty 'HKLM:\SOFTWARE\Microsoft\Windows\CurrentVersion\Internet Settings\Connections' -ErrorAction Stop).WinHttpSettings
+        if ($b -and $b.Length -ge 16 -and ([BitConverter]::ToInt32($b, 8) -band 2)) {
+            $len = [BitConverter]::ToInt32($b, 12)
+            if ($len -gt 0 -and $b.Length -ge 16 + $len) { $r.ProxyWinHttp = [Text.Encoding]::ASCII.GetString($b, 16, $len) }
+        }
+    } catch { }
+
+    # Power saving on the adapter: standard and common vendor keywords, 1 = enabled
+    if ($r.Adapter) {
+        try {
+            $keys = '*EEE', 'AdvancedEEE', 'EnableGreenEthernet', 'GreenEthernet', 'PowerSavingMode', 'GigaLite', '*SelectiveSuspend'
+            $r.PowerSaving = @(Get-NetAdapterAdvancedProperty -Name $r.Adapter -ErrorAction Stop |
+                               Where-Object { $keys -contains $_.RegistryKeyword -and "$(@($_.RegistryValue)[0])" -eq '1' } |
+                               ForEach-Object { $_.DisplayName })
+        } catch { }
+        try { $r.TurnOff = ("$((Get-NetAdapterPowerManagement -Name $r.Adapter -ErrorAction Stop).AllowComputerToTurnOffDevice)" -eq 'Enabled') } catch { }
+    }
+
+    # Loss is judged by traffic that goes THROUGH the router. A router answers pings
+    # to itself with low priority and may skip a few while forwarding everything,
+    # so router-only loss (internet clean) is information, not a problem.
+    $p = 0
+    $inet = $r.InternetPing
+    if ($inet -and $inet.Received -eq 0) { $p++ }
+    elseif ($inet -and $inet.Lost -gt 0) { $p++ }
+    $p += @($r.Dns | Where-Object { -not $_.Ok }).Count
+    if (-not @($r.Dns).Count) { $p++ }
+    $r.Problems = $p; $r.Ok = ($p -eq 0)
+    if ($r.Ok) { Send-Progress $Notify (T 'msg.netdiag.ok') 'ok' } else { Send-Progress $Notify (T 'msg.netdiag.issues' $p) 'warn' }
+    $r
+}
+
 function Format-LinkSpeed {
     param([double]$Bps)
     if ($Bps -ge 1e9) { return (($Bps / 1e9).ToString('0.#', $script:Culture) + ' Gbps') }
@@ -902,12 +993,12 @@ function Measure-Ping {
         include server work. Returns the List itself (fewer than half the samples
         means ICMP is blocked).
     #>
-    param([int]$Count = 10, [int]$TimeoutMs = 1500, [scriptblock]$Notify, [string]$Title)
+    param([int]$Count = 10, [int]$TimeoutMs = 1500, [scriptblock]$Notify, [string]$Title, [string]$Target = '1.1.1.1')
     $samples = New-Object System.Collections.Generic.List[double]
     $icmp = New-Object System.Net.NetworkInformation.Ping
     try {
         for ($i = 0; $i -lt $Count; $i++) {
-            try { $x = $icmp.Send('1.1.1.1', $TimeoutMs); if ($x.Status -eq 'Success') { $samples.Add([double]$x.RoundtripTime) } } catch { }
+            try { $x = $icmp.Send($Target, $TimeoutMs); if ($x.Status -eq 'Success') { $samples.Add([double]$x.RoundtripTime) } } catch { }
             Send-Live $Notify $Title ($i / $Count * 100) ''
             Start-Sleep -Milliseconds 100
         }
@@ -1501,7 +1592,7 @@ Export-ModuleMember -Function @(
     'Test-VolumeHealth','Repair-VolumeSpotFix','Get-OptimizeStatus','Invoke-Optimize',
     'Test-Network','Clear-DnsCache','Restart-NetworkAdapter',
     'Invoke-WindowsTool','Get-PercentFromText','Send-Live','Get-ProtectedFragments','Invoke-SfcScanFile','Test-WmiRepository','Repair-WmiRepository',
-    'Invoke-Chkdsk','Reset-NetworkStack','Test-InternetSpeed','Format-Mbps','Measure-Ping','Get-NetworkAdapterHealth','Format-LinkSpeed','Get-PingStats',
+    'Invoke-Chkdsk','Reset-NetworkStack','Test-InternetSpeed','Format-Mbps','Measure-Ping','Get-NetworkAdapterHealth','Format-LinkSpeed','Get-NetworkDiagnostics','Get-PingStats',
     'Get-MemoryStatus','Get-CpuSample','Get-GamingReadiness','Close-AppGracefully',
     'Get-DataDirectory','Get-HistoryFileName','Get-RunHistoryPath','Read-RunHistory','Write-RunRecord','Get-LastUpdateDate','Get-ComponentCleanupTask'
 )

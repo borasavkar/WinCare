@@ -15,7 +15,7 @@ param(
     [string]$ScreenshotDir = '',
     [string]$Language = '',
     [string]$Theme = '',
-    # 'Live' shows a sample live panel; 'PerfCheck' runs the read-only "before you play" check;
+    # 'Live' shows a sample live panel; 'PerfCheck' runs the read-only "before you play" check; 'NetDiag' the detailed network check;
     # 'Task:<key>' opens a command's page the way the Overview's Show button does (e.g. Task:Apps)
     [string]$CapturePages = 'NavOverview,NavCleanup,NavHealth,NavDisks,NavNetwork,NavPerformance,NavActivity,NavSettings',
     [int]$Height = 0,
@@ -1236,6 +1236,24 @@ $script:XamlTemplate = @'
               <TextBlock x:Name="TxtAdapterInfo" Text="" Style="{StaticResource CaptionAuto}" Margin="0,6,0,0"/>
             </StackPanel>
           </Border>
+          <Border x:Name="CardNetDiag" Style="{StaticResource CardBox}" Padding="24">
+            <StackPanel>
+              <Grid>
+                <Grid.ColumnDefinitions><ColumnDefinition Width="*"/><ColumnDefinition Width="Auto"/></Grid.ColumnDefinitions>
+                <StackPanel Margin="0,0,16,0">
+                  <TextBlock Text="[[net.diag.title]]" Style="{StaticResource H2}"/>
+                  <TextBlock Text="[[net.diag.desc]]" Style="{StaticResource Caption}" Margin="0,4,0,0"/>
+                </StackPanel>
+                <Button x:Name="BtnNetDiag" Grid.Column="1" Style="{StaticResource Primary}" Content="[[action.check]]" VerticalAlignment="Top"/>
+              </Grid>
+              <ItemsControl x:Name="ListNetDiag" ItemTemplate="{StaticResource CheckRow}" Margin="0,18,0,0"/>
+              <Grid Margin="0,4,0,0">
+                <Grid.ColumnDefinitions><ColumnDefinition Width="Auto"/><ColumnDefinition Width="*"/></Grid.ColumnDefinitions>
+                <Ellipse x:Name="HistDotNetDiag" Width="7" Height="7" Fill="{StaticResource Text3}" VerticalAlignment="Top" Margin="0,5,8,0"/>
+                <TextBlock x:Name="HistNetDiag" Grid.Column="1" Text="" FontSize="12" Foreground="{StaticResource Text2}" TextWrapping="Wrap"/>
+              </Grid>
+            </StackPanel>
+          </Border>
           <Border Style="{StaticResource CardBox}" Padding="24">
             <StackPanel>
               <Grid>
@@ -1599,7 +1617,7 @@ $script:ActionButtons = @('BtnQuick','BtnDeep','BtnClean','BtnRemeasure','BtnChe
                           'BtnApps','BtnAnalyze','BtnComp','BtnFsScan','BtnFsFix','BtnOptimize','BtnNetCheck','BtnDns',
                           'BtnAdapter','ThemeSystem','ThemeLight','ThemeDark','BtnVerify','BtnWmi','BtnWmiFix','BtnBrowse',
                           'BtnScanFile','BtnChkdsk','BtnWinsock','BtnIpReset','BtnRecovery','BtnSpeed','BtnSpeedOverview','ChkModeF','ChkModeR','ChkModeFrx','TxtScanPath',
-                          'BtnMemCheck','BtnGameCheck','ListMemTop','ListGameApps','BtnGameOverview','BtnAdapterCheck')
+                          'BtnMemCheck','BtnGameCheck','ListMemTop','ListGameApps','BtnGameOverview','BtnAdapterCheck','BtnNetDiag')
 
 function Get-Brush([string]$Key) { $script:Win.FindResource($Key) }
 
@@ -1947,7 +1965,7 @@ function Request-Restart([string]$Title, [string]$Text, [switch]$Recovery) {
 #  Run history and advice ("when did it last run, is it needed now?")
 # =============================================================================
 $script:HistoryKeys = @('CheckHealth','ScanHealth','SfcVerify','WmiVerify','Apps','RestoreHealth','SfcScan','ScanFile',
-                        'WmiSalvage','ComponentCleanup','VolumeScan','Optimize','Chkdsk','Dns','Adapter','Winsock','IpReset','SpeedTest','GameCheck')
+                        'WmiSalvage','ComponentCleanup','VolumeScan','Optimize','Chkdsk','Dns','Adapter','Winsock','IpReset','SpeedTest','GameCheck','NetDiag')
 
 function Get-ResultOk($Result) {
     $items = @($Result | Where-Object { $null -ne $_ })
@@ -2041,6 +2059,7 @@ function Get-Advice([string]$Key) {
         'ScanFile' { return @('cond', (T 'rec.onDemand')) }
         'SpeedTest' { return @('cond', (T 'rec.speed')) }
         'GameCheck' { return @('cond', (T 'rec.game')) }
+        'NetDiag'   { return @('cond', (T 'rec.netdiag')) }
         'ComponentCleanup' {
             $lastClean = $null
             if ($h) { $lastClean = $h.Time }
@@ -2121,7 +2140,7 @@ $script:TaskInfo = @{
     Chkdsk      = @('disks.chk', 'NavDisks');      Dns        = @('net.dns', 'NavNetwork')
     Adapter     = @('net.adapter', 'NavNetwork');  Winsock    = @('net.winsock', 'NavNetwork')
     IpReset     = @('net.ipreset', 'NavNetwork');  SpeedTest  = @('speed.title', 'NavNetwork')
-    GameCheck   = @('perf.game.title', 'NavPerformance')
+    GameCheck   = @('perf.game.title', 'NavPerformance');   NetDiag = @('net.diag.title', 'NavNetwork')
 }
 
 function Show-Task([string]$Key) {
@@ -2346,6 +2365,69 @@ function Update-AdapterView($a) {
 
     $date = if ($a.DriverDate) { $a.DriverDate.ToString('d', $c) } else { '-' }
     $u.TxtAdapterInfo.Text = T 'net.health.info' $a.Description $a.Driver $date ($a.Time.ToString('t', $c))
+}
+
+function Update-NetDiagView($d) {
+    if (-not $d -or -not $script:Ui) { return }
+    $script:LastNetDiag = $d
+    $c = Get-AppCulture
+    $items = New-Object System.Collections.ObjectModel.ObservableCollection[object]
+    $add = {
+        param([string]$Kind, [string]$Title, [string]$Detail)
+        $k = @{ ok = @(0xE73E, 'Good'); warn = @(0xE7BA, 'Warn'); info = @(0xE946, 'Text3') }[$Kind]
+        $items.Add([pscustomobject]@{ Glyph = [string][char]$k[0]; Brush = (Get-Brush $k[1]); Title = $Title; Detail = $Detail })
+    }
+    $ms = { param($v) if ($null -eq $v) { '-' } else { ([double]$v).ToString('N0', $c) } }
+    $answered = { param($p) T 'net.diag.received' $p.Received $p.Sent }
+    $gw = $d.GatewayPing; $inet = $d.InternetPing
+    $gwLoss = ($gw -and $gw.Received -gt 0 -and $gw.Lost -gt 0)
+    $inetLoss = ($inet -and $inet.Received -gt 0 -and $inet.Lost -gt 0)
+
+    # Router. Its own answers are a weak signal (routers answer pings to themselves
+    # with low priority); loss counts only when traffic through it is lost too.
+    if (-not $d.Gateway) { & $add 'warn' (T 'net.diag.nogw') '' }
+    elseif ($gw.Received -eq 0) { & $add 'info' (T 'net.diag.gw.noreply' $d.Gateway) (T 'net.diag.gw.noreply.d') }
+    else {
+        $detail = & $answered $gw
+        $kind = 'ok'
+        if ($gwLoss -and $inetLoss) { $detail += ' ' + (T 'net.diag.loss.home'); $kind = 'warn' }
+        elseif ($gwLoss) { $detail += ' ' + (T 'net.diag.loss.gwonly'); $kind = 'info' }
+        & $add $kind (T 'net.diag.gw' $d.Gateway (& $ms $gw.PingMs) (& $ms $gw.JitterMs)) $detail
+    }
+    # Internet
+    if ($inet.Received -eq 0) { & $add 'warn' (T 'net.diag.inet.noreply') (T 'net.diag.inet.noreply.d') }
+    else {
+        $detail = & $answered $inet
+        if ($inetLoss -and -not $gwLoss) { $detail += ' ' + (T 'net.diag.loss.isp') }
+        & $add $(if ($inetLoss) { 'warn' } else { 'ok' }) (T 'net.diag.inet' (& $ms $inet.PingMs) (& $ms $inet.JitterMs)) $detail
+    }
+    # DNS
+    if (-not @($d.Dns).Count) { & $add 'warn' (T 'net.diag.dns.none') '' }
+    foreach ($s in @($d.Dns)) {
+        if ($s.Ok) { & $add 'ok' (T 'net.diag.dns' $s.Server (& $ms $s.Ms)) (T 'net.diag.dns.d') }
+        else { & $add 'warn' (T 'net.diag.dns.fail' $s.Server) (T 'net.diag.dns.fail.d') }
+    }
+    if (@($d.DnsV6).Count) { & $add 'info' (T 'net.diag.dns.v6' (@($d.DnsV6) -join ', ')) '' }
+    # Proxy
+    if (-not $d.ProxyUser -and -not $d.ProxyPac -and -not $d.ProxyWinHttp) { & $add 'ok' (T 'net.diag.proxy.none') (T 'net.diag.proxy.none.d') }
+    if ($d.ProxyUser)    { & $add 'info' (T 'net.diag.proxy.user' $d.ProxyUser) (T 'net.diag.proxy.user.d') }
+    if ($d.ProxyPac)     { & $add 'info' (T 'net.diag.proxy.pac' $d.ProxyPac) (T 'net.diag.proxy.user.d') }
+    if ($d.ProxyWinHttp) { & $add 'info' (T 'net.diag.proxy.winhttp' $d.ProxyWinHttp) (T 'net.diag.proxy.winhttp.d') }
+    # Power saving on the adapter
+    $ps = @($d.PowerSaving)
+    if ($d.TurnOff) { $ps += (T 'net.diag.power.turnoff') }
+    if ($ps.Count) { & $add 'info' (T 'net.diag.power.on' ($ps -join ', ')) (T 'net.diag.power.on.d') }
+    elseif ($d.Adapter) { & $add 'ok' (T 'net.diag.power.none') '' }
+
+    $script:Ui.ListNetDiag.ItemsSource = $items
+}
+
+function Start-NetDiag {
+    # Screenshot mode stays read-only: the check runs but is not written to the run history
+    $hist = if ($ScreenshotDir) { '' } else { 'NetDiag' }
+    Invoke-Background -History $hist -Title (T 'net.diag.running') -Work { param($n, $p) Get-NetworkDiagnostics -Notify $n } -Done {
+        param($r) $x = @($r)[-1]; if ($x) { Update-NetDiagView $x }
+    }
 }
 
 function Start-AdapterCheck {
@@ -2632,6 +2714,7 @@ function Register-Screenshots {
         $next = $script:ShotPages[$script:ShotIndex]
         if ($next -eq 'Live') { Show-LiveDemo }
         elseif ($next -eq 'PerfCheck') { $script:Ui.NavPerformance.IsChecked = $true; Start-GameCheck }
+        elseif ($next -eq 'NetDiag') { $script:Ui.NavNetwork.IsChecked = $true; Start-NetDiag }
         elseif ($next.StartsWith('Task:', [StringComparison]::Ordinal)) { Show-Task $next.Substring(5) }   # as the Show button does
         else { $script:Ui[$next].IsChecked = $true }
     })
@@ -2942,6 +3025,7 @@ function Register-Handlers {
     $u.BtnGameOverview.Add_Click({ Start-GameCheck })
     $u.BtnGameDetails.Add_Click({ $script:Ui.NavPerformance.IsChecked = $true })
     $u.BtnAdapterCheck.Add_Click({ Start-AdapterCheck })
+    $u.BtnNetDiag.Add_Click({ Start-NetDiag })
     $u.BtnAdapterDetails.Add_Click({
         $script:Ui.NavNetwork.IsChecked = $true
         $script:ScrollTarget = $script:Ui.CardAdapter
@@ -2991,6 +3075,7 @@ while ($script:Rebuild) {
     if ($first) { Add-Log (T 'app.started' $script:AppVersion) 'info'; $first = $false }
     if ($script:LastData) { Update-FromRefresh $script:LastData }
     if ($script:LastGame) { Update-GameView $script:LastGame }
+    if ($script:LastNetDiag) { Update-NetDiagView $script:LastNetDiag }
     $script:Win.Add_ContentRendered({ if (-not $script:LastData) { Start-Refresh } })
     if (-not $script:JumpListTimer) {
         # twice (after 3 and 15 seconds): PowerShell writes its list at an unknown moment

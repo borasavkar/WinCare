@@ -14,7 +14,7 @@ A clean, minimal maintenance tool for **Windows 11**. It checks your PC's health
 - **Portable, no installation** — extract the ZIP to any folder and run `WinCare.exe`; everything stays in that one folder
 - **No background service** — no service, scheduled task or startup entry. Open it, do what you need, close it; nothing keeps running after you close it
 - **No registry writes** — settings and run history are small files in the `data` folder next to `WinCare.exe`. Run history is kept per computer, so a copy carried to another PC gives each PC advice about itself
-- **Nothing is sent anywhere** — the connection checks only ping your router and Cloudflare (`1.1.1.1`); the speed test runs only when you start it
+- **Nothing is sent anywhere** — the connection checks only ping your router and Cloudflare (`1.1.1.1`) and ask your own DNS servers for a few well-known site names; the speed test runs only when you start it
 - **Free and open source** (MIT), in English and Turkish
 
 ## Why WinCare
@@ -73,6 +73,7 @@ Run history is stored in the `data` folder next to `WinCare.exe`, one file per c
 - **Disks** — free space, SMART health (temperature, wear, errors), read-only file system scan,
   `chkdsk /f` `/r` `/f /r /x`, media-aware optimization (TRIM for SSD, defrag for HDD only)
 - **Internet speed test** — on the Overview and Network pages: download, upload, ping and jitter (4 parallel connections, warm-up ignored, ping via ICMP); the last result is kept, and a failed attempt never hides it
+- **Detailed network check** — ping and packet loss to the router and to the internet (to tell a home-network problem from a provider problem), DNS servers and their response time, proxy settings, power saving on the adapter
 - **Network adapter health** — packet errors and discards from the adapter's own counters, the connected link speed
   against the fastest the adapter supports, duplex and driver version; a one-line summary on the Overview
 - **Network** — connection diagnosis, `ipconfig /flushdns`, adapter restart,
@@ -193,7 +194,7 @@ The new language appears in **Settings** automatically.
 
 ## Privacy
 
-This program will not transfer any information to other networked systems unless specifically requested by the user. The connection checks send only pings to your router and to Cloudflare (`1.1.1.1`). The optional internet speed test, which you start yourself, exchanges only test data with Cloudflare's public speed test (`speed.cloudflare.com`, see [Cloudflare's privacy policy](https://www.cloudflare.com/privacypolicy/)). Settings and run history stay in the `data` folder next to `WinCare.exe`.
+This program will not transfer any information to other networked systems unless specifically requested by the user. The connection checks send only pings to your router and to Cloudflare (`1.1.1.1`); the detailed network check also asks your own DNS servers for a few well-known site names (www.microsoft.com, www.google.com, www.wikipedia.org) to time them. The optional internet speed test, which you start yourself, exchanges only test data with Cloudflare's public speed test (`speed.cloudflare.com`, see [Cloudflare's privacy policy](https://www.cloudflare.com/privacypolicy/)). Settings and run history stay in the `data` folder next to `WinCare.exe`.
 
 ## Code signing policy
 
