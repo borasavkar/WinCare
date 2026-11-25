@@ -2303,7 +2303,7 @@ function Update-GameView($g) {
     if ($g.BackgroundRecording) { & $add 'info' (T 'perf.chk.rec.on') (T 'perf.chk.rec.on.d') }
     else { & $add 'ok' (T 'perf.chk.rec.off') '' }
     if ($null -ne $g.PingMs) {
-        & $add 'info' (T 'perf.chk.ping' (([double]$g.PingMs).ToString('N0', $c)) (([double]$g.JitterMs).ToString('N0', $c))) (T 'perf.chk.ping.d')
+        & $add 'info' (T 'perf.chk.ping' (([double]$g.PingMs).ToString('N0', $c)) (([double]$g.JitterMs).ToString('N0', $c))) (T 'perf.chk.ping.d' $g.PingTarget)
     } else { & $add 'info' (T 'perf.chk.ping.fail') (T 'perf.chk.ping.fail.d') }
 
     if ($g.Ok) { $u.TxtGameMain.Text = T 'perf.game.ok'; Set-Badge $u.GameBadge $u.GameIcon 'good' }
@@ -2399,7 +2399,7 @@ function Update-NetDiagView($d) {
     else {
         $detail = & $answered $inet
         if ($inetLoss -and -not $gwLoss) { $detail += ' ' + (T 'net.diag.loss.isp') }
-        & $add $(if ($inetLoss) { 'warn' } else { 'ok' }) (T 'net.diag.inet' (& $ms $inet.PingMs) (& $ms $inet.JitterMs)) $detail
+        & $add $(if ($inetLoss) { 'warn' } else { 'ok' }) (T 'net.diag.inet' $inet.Target (& $ms $inet.PingMs) (& $ms $inet.JitterMs)) $detail
     }
     # DNS
     if (-not @($d.Dns).Count) { & $add 'warn' (T 'net.diag.dns.none') '' }

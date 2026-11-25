@@ -835,7 +835,13 @@ function Test-Network {
         $r.IP = $ip.IPAddress
         $gw = (Get-NetIPConfiguration -InterfaceIndex $a.ifIndex -ErrorAction SilentlyContinue).IPv4DefaultGateway
         if ($gw -and -not (Test-Connection -ComputerName $gw.NextHop -Count 1 -Quiet -ErrorAction SilentlyContinue)) { $r.Status = 'NoGateway'; return $r }
-        if (-not (Test-Connection -ComputerName '1.1.1.1' -Count 1 -Quiet -ErrorAction SilentlyContinue)) { $r.Status = 'NoInternet'; return $r }
+        # Windows' own verdict first (it checks over HTTP, not ping), then pings to
+        # several public addresses: one address can be blocked by the provider
+        # (1.1.1.1 was, on a working connection) without the internet being down.
+        $online = $false
+        try { $online = @(Get-NetConnectionProfile -InterfaceIndex $a.ifIndex -ErrorAction Stop | Where-Object { "$($_.IPv4Connectivity)" -eq 'Internet' -or "$($_.IPv6Connectivity)" -eq 'Internet' }).Count -gt 0 } catch { }
+        if (-not $online) { $online = [bool](Get-PingTarget) }
+        if (-not $online) { $r.Status = 'NoInternet'; return $r }
         $r.Status = 'OK'
     } catch { }
     $r
@@ -920,7 +926,8 @@ function Get-NetworkDiagnostics {
                            LossPercent = [int][math]::Round(($PingCount - $s.Count) / $PingCount * 100); PingMs = $st.PingMs; JitterMs = $st.JitterMs }
     }
     if ($r.Gateway) { $r.GatewayPing = & $measure $r.Gateway (T 'msg.netdiag.gw') }
-    $r.InternetPing = & $measure '1.1.1.1' (T 'msg.netdiag.inet')
+    $target = Get-PingTarget
+    $r.InternetPing = & $measure $(if ($target) { $target } else { $script:PingTargets[0] }) (T 'msg.netdiag.inet')
 
     Send-Progress $Notify (T 'msg.netdiag.dns') 'step'
     if ($cfg) {
@@ -1016,6 +1023,25 @@ function Get-PingStats {
     $diffs = for ($i = 1; $i -lt $Samples.Count; $i++) { [math]::Abs($Samples[$i] - $Samples[$i - 1]) }
     $r.JitterMs = if (@($diffs).Count) { [math]::Round((@($diffs) | Measure-Object -Average).Average, 1) } else { 0.0 }
     $r
+}
+
+$script:PingTargets = @('1.1.1.1', '8.8.8.8', '9.9.9.9')     # Cloudflare, Google, Quad9
+
+function Get-PingTarget {
+    <#
+        First public address that answers ping, or $null. A provider can block
+        one of them (seen: 1.1.1.1 unreachable while the internet worked), so
+        internet pings fall back to the next one instead of reporting "no internet".
+    #>
+    $icmp = New-Object System.Net.NetworkInformation.Ping
+    try {
+        foreach ($t in $script:PingTargets) {
+            for ($i = 0; $i -lt 2; $i++) {
+                try { if ($icmp.Send($t, 1000).Status -eq 'Success') { return $t } } catch { }
+            }
+        }
+    } finally { $icmp.Dispose() }
+    $null
 }
 
 function Test-InternetSpeed {
@@ -1413,7 +1439,8 @@ function Get-GamingReadiness {
     $ping = $null
     if ($PingCount -gt 0) {
         Send-Progress $Notify (T 'msg.speed.ping') 'step'
-        $ping = Get-PingStats (Measure-Ping -Count $PingCount -TimeoutMs 1000 -Notify $Notify -Title (T 'msg.speed.ping'))
+        $pingTarget = Get-PingTarget
+        if ($pingTarget) { $ping = Get-PingStats (Measure-Ping -Target $pingTarget -Count $PingCount -TimeoutMs 1000 -Notify $Notify -Title (T 'msg.speed.ping')) }
     }
 
     $warn = $low.Count
@@ -1424,7 +1451,7 @@ function Get-GamingReadiness {
         CpuPercent = $cpu.TotalPercent; Apps = $apps; Busy = $busy
         Memory = $mem; RebootReasons = $reboot; LowVolumes = $low
         GameMode = $gameMode; BackgroundRecording = $recording; HasBattery = $hasBattery; OnBattery = $onBattery
-        PingMs = $(if ($ping) { $ping.PingMs }); JitterMs = $(if ($ping) { $ping.JitterMs })
+        PingMs = $(if ($ping) { $ping.PingMs }); JitterMs = $(if ($ping) { $ping.JitterMs }); PingTarget = $pingTarget
     }
 }
 
@@ -1592,7 +1619,7 @@ Export-ModuleMember -Function @(
     'Test-VolumeHealth','Repair-VolumeSpotFix','Get-OptimizeStatus','Invoke-Optimize',
     'Test-Network','Clear-DnsCache','Restart-NetworkAdapter',
     'Invoke-WindowsTool','Get-PercentFromText','Send-Live','Get-ProtectedFragments','Invoke-SfcScanFile','Test-WmiRepository','Repair-WmiRepository',
-    'Invoke-Chkdsk','Reset-NetworkStack','Test-InternetSpeed','Format-Mbps','Measure-Ping','Get-NetworkAdapterHealth','Format-LinkSpeed','Get-NetworkDiagnostics','Get-PingStats',
+    'Invoke-Chkdsk','Reset-NetworkStack','Test-InternetSpeed','Format-Mbps','Measure-Ping','Get-NetworkAdapterHealth','Format-LinkSpeed','Get-NetworkDiagnostics','Get-PingTarget','Get-PingStats',
     'Get-MemoryStatus','Get-CpuSample','Get-GamingReadiness','Close-AppGracefully',
     'Get-DataDirectory','Get-HistoryFileName','Get-RunHistoryPath','Read-RunHistory','Write-RunRecord','Get-LastUpdateDate','Get-ComponentCleanupTask'
 )

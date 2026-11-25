@@ -14,7 +14,7 @@
 - **Taşınabilir, kurulum gerekmez** — zip'i istediğiniz klasöre çıkarıp `WinCare.exe`'yi çalıştırırsınız; her şey o tek klasörde kalır
 - **Arka plan hizmeti yok** — hizmet, zamanlanmış görev ya da başlangıç kaydı eklemez. Açın, işinizi yapın, kapatın; kapattıktan sonra hiçbir parçası çalışmaya devam etmez
 - **Kayıt defterine yazmaz** — ayarlar ve çalışma geçmişi `WinCare.exe`'nin yanındaki `data` klasöründe küçük dosyalarda durur. Çalışma geçmişi her bilgisayar için ayrı tutulur; başka bir bilgisayara taşınan WinCare o bilgisayara kendi durumuna göre öneri verir
-- **Hiçbir veri gönderilmez** — bağlantı kontrolleri yalnızca modeminize ve Cloudflare'e (`1.1.1.1`) ping atar ve kendi DNS sunucularınıza birkaç bilinen site adını sorar; hız testi yalnızca siz başlattığınızda çalışır
+- **Hiçbir veri gönderilmez** — bağlantı kontrolleri yalnızca modeminize ve genel bir adrese (Cloudflare `1.1.1.1`; o yanıt vermezse Google `8.8.8.8` ya da Quad9 `9.9.9.9`) ping atar ve kendi DNS sunucularınıza birkaç bilinen site adını sorar; hız testi yalnızca siz başlattığınızda çalışır
 - **Ücretsiz ve açık kaynak** (MIT lisansı), Türkçe ve İngilizce
 
 ## Neler yapar
@@ -72,7 +72,7 @@ gh attestation verify WinCare-<sürüm>.zip --repo borasavkar/WinCare
 
 ## Gizlilik
 
-Siz istemedikçe hiçbir bilgi başka bir sisteme gönderilmez. Bağlantı kontrolleri yalnızca modeminize ve Cloudflare'e (`1.1.1.1`) ping atar; ayrıntılı ağ denetimi ayrıca yanıt süresini ölçmek için kendi DNS sunucularınıza birkaç bilinen site adını (www.microsoft.com, www.google.com, www.wikipedia.org) sorar. İsteğe bağlı internet hız testi yalnızca siz başlattığınızda çalışır ve Cloudflare'in açık hız testiyle (`speed.cloudflare.com`) yalnızca test verisi alışverişi yapar. Ayarlar ve çalışma geçmişi `WinCare.exe`'nin yanındaki `data` klasöründe kalır.
+Siz istemedikçe hiçbir bilgi başka bir sisteme gönderilmez. Bağlantı kontrolleri yalnızca modeminize ve genel bir adrese (Cloudflare `1.1.1.1`; o yanıt vermezse Google `8.8.8.8` ya da Quad9 `9.9.9.9`) ping atar; ayrıntılı ağ denetimi ayrıca yanıt süresini ölçmek için kendi DNS sunucularınıza birkaç bilinen site adını (www.microsoft.com, www.google.com, www.wikipedia.org) sorar. İsteğe bağlı internet hız testi yalnızca siz başlattığınızda çalışır ve Cloudflare'in açık hız testiyle (`speed.cloudflare.com`) yalnızca test verisi alışverişi yapar. Ayarlar ve çalışma geçmişi `WinCare.exe`'nin yanındaki `data` klasöründe kalır.
 
 ## Kod imzalama politikası
 
